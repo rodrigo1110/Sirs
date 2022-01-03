@@ -1,0 +1,116 @@
+syntax = "proto3";
+package pt.tecnico.grpc;
+
+message HelloRequest {
+	// Each message attribute is strongly typed.
+	// You also must assign a "tag" number.
+	// Each tag number is unique within the message.
+	string name = 1;
+
+	// This defines a strongly typed list of String
+	repeated string hobbies = 2;
+
+	// There are many more basics types, like Enum, Map
+	// See https://developers.google.com/protocol-buffers/docs/proto3
+	// for more information.
+}
+
+message HelloResponse {
+	string greeting = 1;
+}
+
+service UserMainServerService {
+	rpc greeting(HelloRequest) returns (HelloResponse);
+	rpc signIn(signInRequest) returns (signInResponse);
+	rpc signUp(signUpRequest) returns (signUpResponse);
+	rpc logout(logoutRequest) returns (logoutResponse);
+	rpc upload(uploadRequest) returns (uploadResponse);
+	rpc download(downloadRequest) returns (downloadResponse);
+	rpc share(shareRequest) returns (shareResponse);
+	rpc unshare(unshareRequest) returns (unshareResponse);
+	rpc deleteUser(deleteUserRequest) returns (deleteUserResponse);
+	rpc deleteFIle(deleteFileRequest) returns (deleteFileResponse);
+
+}
+
+message uploadRequest{
+	string fileId = 1;
+	bytes fileContent = 2;
+}
+
+message uploadResponse{
+	string status = 1;
+}
+
+message signUpRequest{
+	string userName = 1;
+	string password = 2;
+}
+
+message signUpResponse{
+	string status = 1;
+}
+
+message signInRequest{
+	string userName = 1;
+	string password = 2;
+}
+
+message signInResponse{
+	string status = 1;
+	string cookie = 2;
+}
+
+message logoutRequest{
+	string cookie = 1;
+}
+
+message logoutResponse{
+	string status = 1;
+}
+
+message deleteUserRequest{
+	string userName = 1;
+	string password = 2;
+}
+
+message deleteUserResponse{
+	string status = 1;
+}
+
+message downloadRequest{
+	string fileId = 1;
+}
+
+message downloadResponse{
+	bytes fileContent = 1;
+}
+
+message shareRequest{
+	string fileId = 1;
+	repeated string userName = 2; 
+	string cookie = 3;
+}
+
+message shareResponse{
+	string status = 1;
+}
+
+message unshareRequest{
+	string fileId = 1;
+	repeated string userName = 2; 
+	string cookie = 3;
+}
+
+message unshareResponse{
+	string status = 1;
+}
+
+message deleteFileRequest{
+	string fileId = 1;
+	string cookie = 2;
+}
+
+message deleteFileResponse{
+	string status = 1;
+}
