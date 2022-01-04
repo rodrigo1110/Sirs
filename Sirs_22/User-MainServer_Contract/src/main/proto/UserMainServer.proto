@@ -2,14 +2,8 @@ syntax = "proto3";
 package pt.tecnico.grpc;
 
 message HelloRequest {
-	// Each message attribute is strongly typed.
-	// You also must assign a "tag" number.
-	// Each tag number is unique within the message.
 	string name = 1;
-
-	// This defines a strongly typed list of String
 	repeated string hobbies = 2;
-
 	// There are many more basics types, like Enum, Map
 	// See https://developers.google.com/protocol-buffers/docs/proto3
 	// for more information.
@@ -17,20 +11,6 @@ message HelloRequest {
 
 message HelloResponse {
 	string greeting = 1;
-}
-
-service UserMainServerService {
-	rpc greeting(HelloRequest) returns (HelloResponse);
-	rpc signIn(signInRequest) returns (signInResponse);
-	rpc signUp(signUpRequest) returns (signUpResponse);
-	rpc logout(logoutRequest) returns (logoutResponse);
-	rpc upload(uploadRequest) returns (uploadResponse);
-	rpc download(downloadRequest) returns (downloadResponse);
-	rpc share(shareRequest) returns (shareResponse);
-	rpc unshare(unshareRequest) returns (unshareResponse);
-	rpc deleteUser(deleteUserRequest) returns (deleteUserResponse);
-	rpc deleteFIle(deleteFileRequest) returns (deleteFileResponse);
-
 }
 
 message uploadRequest{
@@ -51,12 +31,12 @@ message signUpResponse{
 	string status = 1;
 }
 
-message signInRequest{
+message loginRequest{
 	string userName = 1;
 	string password = 2;
 }
 
-message signInResponse{
+message loginResponse{
 	string status = 1;
 	string cookie = 2;
 }
@@ -113,4 +93,17 @@ message deleteFileRequest{
 
 message deleteFileResponse{
 	string status = 1;
+}
+
+service UserMainServerService {
+	rpc greeting(HelloRequest) returns (HelloResponse);
+	rpc login(loginRequest) returns (loginResponse);
+	rpc signUp(signUpRequest) returns (signUpResponse);
+	rpc logout(logoutRequest) returns (logoutResponse);
+	rpc upload(uploadRequest) returns (uploadResponse);
+	rpc download(downloadRequest) returns (downloadResponse);
+	rpc share(shareRequest) returns (shareResponse);
+	rpc unshare(unshareRequest) returns (unshareResponse);
+	rpc deleteUser(deleteUserRequest) returns (deleteUserResponse);
+	rpc deleteFile(deleteFileRequest) returns (deleteFileResponse);
 }

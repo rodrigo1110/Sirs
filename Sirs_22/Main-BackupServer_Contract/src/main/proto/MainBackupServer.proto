@@ -1,0 +1,70 @@
+syntax = "proto3";
+package pt.tecnico.grpc;
+
+
+message HelloRequest {
+	string name = 1;
+	repeated string hobbies = 2;
+}
+
+message HelloResponse {
+	string greeting = 1;
+}
+
+
+
+
+message writeRequest {
+	string username = 1;
+	string field = 2;
+	string value = 3;
+	int32 sequence = 4;
+}
+
+message writeResponse {
+	string status = 1;
+}
+
+message writeFileRequest {
+	string username = 1;
+	string fileId = 2;
+	bytes fileContent = 3;
+	int32 sequence = 4;
+}
+
+message writeFileResponse {
+	string status = 1;
+}
+
+
+
+
+//--------------------- Reads for testing and later use -------------------
+message readRequest{
+	string username = 1;
+	string field = 2;
+}
+
+message readResponse{
+	string value = 1;
+	int32 sequence = 2;
+}
+
+message readFileRequest{
+	string username = 1;
+	string fileId = 2;
+}
+
+message readFileResponse{
+	bytes fileContent = 1;
+	int32 sequence = 2;
+}
+
+
+service MainBackupServerService {
+	rpc greeting(HelloRequest) returns (HelloResponse);
+	rpc write(writeRequest) returns (writeResponse);
+	rpc writeFile(writeFileRequest) returns (writeFileResponse);
+	rpc read(readRequest) returns (readResponse);
+	rpc readFile(readFileRequest) returns (readFileResponse);
+}
