@@ -16,10 +16,10 @@ message HelloResponse {
 message uploadRequest{
 	string fileId = 1;
 	bytes fileContent = 2;
+	string cookie = 3;
 }
 
 message uploadResponse{
-	string status = 1;
 }
 
 message signUpRequest{
@@ -28,7 +28,6 @@ message signUpRequest{
 }
 
 message signUpResponse{
-	string status = 1;
 }
 
 message loginRequest{
@@ -37,7 +36,6 @@ message loginRequest{
 }
 
 message loginResponse{
-	string status = 1;
 	string cookie = 2;
 }
 
@@ -46,7 +44,6 @@ message logoutRequest{
 }
 
 message logoutResponse{
-	string status = 1;
 }
 
 message deleteUserRequest{
@@ -55,15 +52,14 @@ message deleteUserRequest{
 }
 
 message deleteUserResponse{
-	string status = 1;
 }
 
 message downloadRequest{
 	string fileId = 1;
+	string cookie = 2;
 }
 
 message downloadResponse{
-	string status = 1;
 	bytes fileContent = 2;
 }
 
@@ -74,7 +70,6 @@ message shareRequest{
 }
 
 message shareResponse{
-	string status = 1;
 }
 
 message unshareRequest{
@@ -84,7 +79,6 @@ message unshareRequest{
 }
 
 message unshareResponse{
-	string status = 1;
 }
 
 message deleteFileRequest{
@@ -93,7 +87,6 @@ message deleteFileRequest{
 }
 
 message deleteFileResponse{
-	string status = 1;
 }
 
 service UserMainServerService {

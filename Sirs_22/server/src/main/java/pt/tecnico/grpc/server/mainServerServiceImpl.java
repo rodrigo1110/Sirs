@@ -5,9 +5,9 @@ import pt.tecnico.grpc.UserMainServer;
 import pt.tecnico.grpc.UserMainServerServiceGrpc;
 import pt.tecnico.grpc.server.mainServer;
 import pt.tecnico.grpc.server.server;
-import io.grpc.Server;
 
 import io.grpc.stub.StreamObserver;
+import static io.grpc.Status.INVALID_ARGUMENT;
 
 public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainServerServiceImplBase {
 
@@ -16,24 +16,155 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	private mainServer server = new mainServer();
 	private server listeningServer = new server();
 
+
 	@Override
 	public void greeting(UserMainServer.HelloRequest request, StreamObserver<UserMainServer.HelloResponse> responseObserver) {
-
-		// HelloRequest has auto-generated toString method that shows its contents
 		System.out.println(request);
 
-		// You must use a builder to construct a new Protobuffer object
 		UserMainServer.HelloResponse response = UserMainServer.HelloResponse.newBuilder()
 				.setGreeting(server.greet(request.getName())).build();
-
-		// Use responseObserver to send a single response back
 		responseObserver.onNext(response);
-
-		// When you are done, you must call onCompleted
 		responseObserver.onCompleted();
-
 		//listeningServer.getServer().shutdown(); use later for killing main server in case of ransomware attack
 		//listeningServer.getChannel().shutdown() use later for killing main server's client channel in case of ransomware attack
 	}
+
+
+	@Override 
+	public void signUp(UserMainServer.signUpRequest request, StreamObserver<UserMainServer.signUpResponse> responseObserver){
+		try{
+			server.signUp(request.getUserName(),request.getPassword());
+
+			UserMainServer.signUpResponse response = UserMainServer.signUpResponse.newBuilder().build();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();	
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+
+	@Override 
+	public void login(UserMainServer.loginRequest request, StreamObserver<UserMainServer.loginResponse> responseObserver){
+		try{
+			UserMainServer.loginResponse response = UserMainServer.loginResponse.newBuilder()
+			.setCookie(server.login(request.getUserName(),request.getPassword())).build();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();	
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+
+	@Override
+	public void logout(UserMainServer.logoutRequest request, StreamObserver<UserMainServer.logoutResponse> responseObserver){
+		try{
+			server.logout(request.getCookie());
+			
+			UserMainServer.logoutResponse response = UserMainServer.logoutResponse.newBuilder().build();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();	
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+
+	@Override 
+	public void upload(UserMainServer.uploadRequest request, StreamObserver<UserMainServer.uploadResponse> responseObserver){
+		try{
+			server.upload(request.getFileId(),request.getCookie(),request.getFileContent());
+
+			UserMainServer.uploadResponse response = UserMainServer.uploadResponse.newBuilder().build();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();	
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+
+	@Override 
+	public void download(UserMainServer.downloadRequest request, StreamObserver<UserMainServer.downloadResponse> responseObserver){
+		try{
+			UserMainServer.downloadResponse response = UserMainServer.downloadResponse.newBuilder()
+				.setFileContent(server.download(request.getFileId(),request.getCookie())).build();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();	
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+
+	@Override 
+	public void share(UserMainServer.shareRequest request, StreamObserver<UserMainServer.shareResponse> responseObserver){
+		try{
+			server.share(request.getFileId(),request.getCookie(),request.getUserNameList());
+
+			UserMainServer.shareResponse response = UserMainServer.shareResponse.newBuilder().build();
+			responseObserver.onNext(response); 
+			responseObserver.onCompleted();	
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+
+	@Override 
+	public void unshare(UserMainServer.unshareRequest request, StreamObserver<UserMainServer.unshareResponse> responseObserver){
+		try{
+			server.share(request.getFileId(),request.getCookie(),request.getUserNameList());
+
+			UserMainServer.unshareResponse response = UserMainServer.unshareResponse.newBuilder().build();
+			responseObserver.onNext(response); 
+			responseObserver.onCompleted();	
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+
+	@Override 
+	public void deleteUser(UserMainServer.deleteUserRequest request, StreamObserver<UserMainServer.deleteUserResponse> responseObserver){
+		try{
+			server.deleteUser(request.getUserName(),request.getPassword());
+
+			UserMainServer.deleteUserResponse response = UserMainServer.deleteUserResponse.newBuilder().build();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();	
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+	@Override 
+	public void deleteFile(UserMainServer.deleteFileRequest request, StreamObserver<UserMainServer.deleteFileResponse> responseObserver){
+		try{
+			server.deleteFile(request.getFileId(),request.getCookie());
+
+			UserMainServer.deleteFileResponse response = UserMainServer.deleteFileResponse.newBuilder().build();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();	
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+
+
+
+
+	
 
 }
