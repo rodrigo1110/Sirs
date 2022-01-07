@@ -4,6 +4,8 @@ package pt.tecnico.grpc.server;
 import pt.tecnico.grpc.UserMainServer;
 import pt.tecnico.grpc.UserMainServerServiceGrpc;
 import pt.tecnico.grpc.server.mainServer;
+import pt.tecnico.grpc.server.server;
+import io.grpc.Server;
 
 import io.grpc.stub.StreamObserver;
 
@@ -12,7 +14,7 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	//--------------------------user-mainServer communication implementation--------------------------
 	
 	private mainServer server = new mainServer();
-
+	private server listeningServer = new server();
 
 	@Override
 	public void greeting(UserMainServer.HelloRequest request, StreamObserver<UserMainServer.HelloResponse> responseObserver) {
@@ -29,6 +31,9 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 
 		// When you are done, you must call onCompleted
 		responseObserver.onCompleted();
+
+		//listeningServer.getServer().shutdown(); use later for killing main server in case of ransomware attack
+		//listeningServer.getChannel().shutdown() use later for killing main server's client channel in case of ransomware attack
 	}
 
 }

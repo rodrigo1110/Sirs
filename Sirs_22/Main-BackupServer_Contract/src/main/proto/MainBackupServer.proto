@@ -11,6 +11,27 @@ message HelloResponse {
 	string greeting = 1;
 }
 
+//----------Heartbeat for later when there are multiple backups---------------
+
+message heartbeatRequest{
+
+}
+
+message heartbeatResponse{
+	int32 instance = 1;
+	string status = 2;
+	int32 sequenceOverview = 3;
+}
+
+
+
+message promoteRequest {
+	int32 targetInstance = 1;
+}
+
+message promoteResponse {
+	string status = 1;
+}
 
 
 
@@ -63,6 +84,8 @@ message readFileResponse{
 
 service MainBackupServerService {
 	rpc greeting(HelloRequest) returns (HelloResponse);
+	rpc heartbeat(heartbeatRequest) returns (heartbeatResponse);
+	rpc promote(promoteRequest) returns (promoteResponse);
 	rpc write(writeRequest) returns (writeResponse);
 	rpc writeFile(writeFileRequest) returns (writeFileResponse);
 	rpc read(readRequest) returns (readResponse);

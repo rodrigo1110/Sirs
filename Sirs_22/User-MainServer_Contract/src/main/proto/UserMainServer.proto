@@ -63,7 +63,8 @@ message downloadRequest{
 }
 
 message downloadResponse{
-	bytes fileContent = 1;
+	string status = 1;
+	bytes fileContent = 2;
 }
 
 message shareRequest{

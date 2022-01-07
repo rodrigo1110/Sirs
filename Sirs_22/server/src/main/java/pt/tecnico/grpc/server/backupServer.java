@@ -4,7 +4,7 @@ public class backupServer {
     
 
     public String greet(String name){
-        return "Hello " + name + ". I'm instance number ";
+        return "Hello " + name + ". I am instance number ";
     }
 
     //--------------------------mainServer-backupServer implementation--------------------------

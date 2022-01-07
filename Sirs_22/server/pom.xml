@@ -22,6 +22,7 @@
 
 		<mainclass>pt.tecnico.grpc.server.server</mainclass>
 		<instance>1</instance>
+		<backupHostName>localhost</backupHostName>
 	</properties>
 
 	<dependencies>
@@ -65,8 +66,10 @@
 				</executions>
 				<configuration>
 					<mainClass>${mainclass}</mainClass>
+					<cleanupDaemonThreads>false</cleanupDaemonThreads>
 					<arguments>
 						<argument>${instance}</argument>
+						<argument>${backupHostName}</argument>
 					</arguments>
 				</configuration>
 			</plugin>
