@@ -22,6 +22,7 @@
 		<version.maven-compiler-plugin>3.8.1</version.maven-compiler-plugin>
 
 		<version.grpc>1.36.0</version.grpc>
+		<netty.tcnative.version>2.0.34.Final</netty.tcnative.version>
 		<version.protoc>3.12.0</version.protoc><!-- aligned with the gRPC dependency version -->
 		<version.javax.annotation-api>1.3.2</version.javax.annotation-api>
 	</properties>
@@ -52,6 +53,19 @@
 		<!-- 
 			gRPC dependencies (versions are defined by the BoM).
 		-->
+
+		<dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty</artifactId>
+        </dependency>
+
+		<dependency>
+      		<groupId>io.netty</groupId>
+      		<artifactId>netty-tcnative-boringssl-static</artifactId>
+      		<version>${netty.tcnative.version}</version>
+      		<scope>runtime</scope>
+    	</dependency>
+
 		<!-- gRPC Protocol Buffers
 			https://mvnrepository.com/artifact/io.grpc/grpc-protobuf -->
 		<dependency>
@@ -64,15 +78,7 @@
 			<groupId>io.grpc</groupId>
 			<artifactId>grpc-stub</artifactId>
 		</dependency>
-		<!-- Netty is an asynchronous, event-driven, network application development framework.
-			https://mvnrepository.com/artifact/io.grpc/grpc-netty-shaded 
-			The library is shaded to prevent conflicts with other versions of Netty. 
-			More about shaded jars: https://stackoverflow.com/a/49811665/129497 -->
-		<dependency>
-			<groupId>io.grpc</groupId>
-			<artifactId>grpc-netty-shaded</artifactId>
-			<scope>runtime</scope>
-		</dependency>
+		
 		<!-- gRPC Testing support
 			https://mvnrepository.com/artifact/io.grpc/grpc-testing -->
 		<dependency>

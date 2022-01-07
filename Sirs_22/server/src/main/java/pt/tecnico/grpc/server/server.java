@@ -3,10 +3,12 @@ package pt.tecnico.grpc.server;
 import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import java.io.File;
 
 public class server {
 
-	/** Server host port. */
+	//-------------- Main function only------------------
+
 	private static int port;
 	private static int instance;
 
@@ -27,15 +29,24 @@ public class server {
 			return;
 		} 
 
-		//port = Integer.valueOf(args[0]);
 		instance = Integer.valueOf(args[0]);
 		port = 8090 + instance;
-		final BindableService impl = new serverServiceImpl();
 
-		// Create a new server to listen on port.
-		Server server = ServerBuilder.forPort(port).addService(impl).build();
-		// Start the server.
+		BindableService impl;
+		Server server;
+		if(instance==1){
+			impl = new mainServerServiceImpl();
+			server = ServerBuilder.forPort(port).useTransportSecurity(new File("tlscert/server.crt"),
+        	new File("tlscert/server.pem")).addService(impl).build();
+		}
+		else{
+			impl = new backupServerServiceImpl(instance);
+			server = ServerBuilder.forPort(port).useTransportSecurity(new File("tlscert/server.crt"), //TODO add certificate and key for backup server
+        	new File("tlscert/server.pem")).addService(impl).build();
+		}
+
 		server.start();
+
 		// Server threads are running in the background.
 		System.out.println("Server started");
 
