@@ -20,7 +20,7 @@ message heartbeatRequest{
 message heartbeatResponse{
 	int32 instance = 1;
 	string status = 2;
-	int32 sequenceOverview = 3;
+	int32 sequenceOverview = 3; //Possibly useful or useless for later 
 }
 
 
@@ -30,7 +30,6 @@ message promoteRequest {
 }
 
 message promoteResponse {
-	string status = 1;
 }
 
 
@@ -43,8 +42,8 @@ message writeRequest {
 }
 
 message writeResponse {
-	string status = 1;
 }
+
 
 message writeFileRequest {
 	string username = 1;
@@ -54,10 +53,7 @@ message writeFileRequest {
 }
 
 message writeFileResponse {
-	string status = 1;
 }
-
-
 
 
 //--------------------- Reads for testing and later use -------------------
@@ -70,6 +66,7 @@ message readResponse{
 	string value = 1;
 	int32 sequence = 2;
 }
+
 
 message readFileRequest{
 	string username = 1;

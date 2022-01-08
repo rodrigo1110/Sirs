@@ -1,56 +1,42 @@
 package pt.tecnico.grpc.server;
 
 import pt.tecnico.grpc.UserMainServer;
+import pt.tecnico.grpc.server.exceptions.*;
 import pt.tecnico.grpc.server.databaseAccess;
+import pt.tecnico.grpc.MainBackupServerServiceGrpc;
+import pt.tecnico.grpc.MainBackupServer;
+
+import io.grpc.ManagedChannel;
 
 import java.io.File;
+import java.io.InvalidClassException;
 import java.util.ArrayList;
 import java.util.List;
 
 import com.google.protobuf.ByteString;
 
-enum ErrorMessage{
-	USER_UNKNOWN, FILE_UNKNOWN, EXISTENT_USERNAME, RANSOMWARE_DETECTED, INVALID_COOKIE,
-    WRONG_PASSWORD, NO_PERMISSION, NOT_SHARED_WITH_USER, USER_ALREADY_HAS_ACCESS    //Add more later
-}
 
 public class mainServer {
     
     //--------------------------user-mainServer implementation--------------------------
-    
-    public static String errorMessageToString(ErrorMessage errorMessage){
-        if(errorMessage == ErrorMessage.USER_UNKNOWN ) 
-			return "Utilizador desconhecido.";
-		
-		else if(errorMessage == ErrorMessage.FILE_UNKNOWN) 
-			return "Ficheiro desconhecido.";
+    ManagedChannel channel;
+    MainBackupServerServiceGrpc.MainBackupServerServiceBlockingStub stub;
+    boolean clientActive = false;
 
-		else if(errorMessage == ErrorMessage.EXISTENT_USERNAME) 
-			return "O nome de utilizador fornecido já existe.";
 
-		else if(errorMessage == ErrorMessage.INVALID_COOKIE)
-			return "Cookie inválida.";
-		
-		else if(errorMessage == ErrorMessage.WRONG_PASSWORD) 
-			return "Password errada.";
-		
-		else if(errorMessage == ErrorMessage.NO_PERMISSION) 
-			return "Sem permissão.";
-
-        else if(errorMessage == ErrorMessage.RANSOMWARE_DETECTED) 
-			return "Ataque de ransomware detetado.";
-
-        else if(errorMessage == ErrorMessage.NOT_SHARED_WITH_USER) 
-			return "O seguinte utilizador não faz parte da lista dos utilizadores com acesso ao ficheiro: ";
-        
-        else if(errorMessage == ErrorMessage.USER_ALREADY_HAS_ACCESS) 
-			return "O seguinte utilizador já tem acesso: ";
-
-		else 
-			return "";	
+    public mainServer(Boolean flag, ManagedChannel Channel, MainBackupServerServiceGrpc.MainBackupServerServiceBlockingStub Stub){
+        if(flag){
+            channel = Channel;
+            stub = Stub;
+            clientActive = true;
+        }
     }
     
     public String greet(String name){
+        if(clientActive){ //Just for testing, delete later and write function to make requests to backup
+            MainBackupServer.HelloRequest request = MainBackupServer.HelloRequest.newBuilder().setName("buddy").build();
+		    MainBackupServer.HelloResponse response = stub.greeting(request);
+        }
         return "Hello my dear " + name + "!";
     }
 
@@ -59,16 +45,16 @@ public class mainServer {
         //---signup code later---
         if(true) return;
         else
-            throw new Exception(errorMessageToString(ErrorMessage.EXISTENT_USERNAME)); 
+            throw new ExistentUsernameException(); 
     }
 
 
     public String login(String username, String password) throws Exception{
         //---login code later---
-        if(true)
+        if(1==2)
             return "Cookie :-9";
         else
-            throw new Exception(errorMessageToString(ErrorMessage.WRONG_PASSWORD)); 
+            throw new RansomwareAttackException();
     }
 
 
@@ -76,7 +62,7 @@ public class mainServer {
         //---logout code later---
         if(true) return;
         else
-            throw new Exception(errorMessageToString(ErrorMessage.INVALID_COOKIE)); 
+            throw new InvalidCookieException(); 
     }
 
 
@@ -84,7 +70,7 @@ public class mainServer {
         //---upload code later---
         if(true) return;
         else
-            throw new Exception(errorMessageToString(ErrorMessage.INVALID_COOKIE)); 
+            throw new InvalidCookieException(); 
     }
 
 
@@ -93,7 +79,7 @@ public class mainServer {
         if(true)
             return ByteString.copyFromUtf8("Future conversion will be from file to bytestring");
         else
-            throw new Exception(errorMessageToString(ErrorMessage.FILE_UNKNOWN)); 
+            throw new FileUnknownException(); 
     }
 
 
@@ -101,7 +87,7 @@ public class mainServer {
         //---share code later---
         if(true) return;
         else
-            throw new Exception(errorMessageToString(ErrorMessage.USER_ALREADY_HAS_ACCESS)); 
+            throw new UserAlreadyHasAccessException(); 
     }
 
 
@@ -109,7 +95,7 @@ public class mainServer {
         //---unshare code later---
         if(true) return;
         else
-            throw new Exception(errorMessageToString(ErrorMessage.NOT_SHARED_WITH_USER)); 
+            throw new NotSharedWithUserException(); 
     }
 
 
@@ -117,7 +103,7 @@ public class mainServer {
         //---delete user code later---
         if(true) return;
         else
-            throw new Exception(errorMessageToString(ErrorMessage.USER_UNKNOWN)); 
+            throw new UserUnknownException(); 
     }
 
 
@@ -125,7 +111,6 @@ public class mainServer {
         //---delete file code later---
         if(true) return;
         else
-            throw new Exception(errorMessageToString(ErrorMessage.USER_UNKNOWN)); 
+            throw new UserUnknownException(); 
     }
-
 }

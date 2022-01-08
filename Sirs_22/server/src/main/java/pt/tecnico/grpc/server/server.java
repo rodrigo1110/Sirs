@@ -13,6 +13,8 @@ import io.grpc.netty.GrpcSslContexts;
 import io.grpc.StatusRuntimeException;
 
 import java.io.IOException;
+
+import javax.lang.model.util.ElementScanner6;
 import javax.net.ssl.SSLException;
 import java.io.File;
 
@@ -20,10 +22,12 @@ public class server {
 
 	//-------------- Main function only------------------
 
-	private static int port;
+	private static boolean clientActive = false;
+	private static int port = 8090;
 	private static int instance;
 	private static Server server;
 	private static String backupHostName;
+	private static BindableService impl;
 	private static ManagedChannel channel;
 	private static MainBackupServerServiceGrpc.MainBackupServerServiceBlockingStub stub;
 
@@ -44,31 +48,26 @@ public class server {
 
 		instance = Integer.valueOf(args[0]);
 		backupHostName = args[1];
-		port = 8090 + instance;
-		BindableService impl;
 		
 		if(instance==1){
-			impl = new mainServerServiceImpl();
-			server = ServerBuilder.forPort(port).useTransportSecurity(new File("tlscert/server.crt"),
-        	new File("tlscert/server.pem")).addService(impl).build();
-
 			try{
-			createClient();
-			server.start();
+				createClient(instance,backupHostName);
 			} catch (StatusRuntimeException e){
 				System.err.println("Backup Server isn't running initially.");
-				System.exit(-1);
+				System.exit(-1); //Instead of exiting assume as normal behavior later?(backup may be compromissed/inexistent since beginning of program?)
 			} catch (SSLException e){
 				System.err.println("SSL error with description: " + e);
 				System.exit(-1);
+			} catch (IOException ex){
+				System.err.println("IOException with message: " + ex.getMessage() + " and cause:" + ex.getCause());
+				System.exit(-1);
 			}
 		}
-
-		else{
-			impl = new backupServerServiceImpl(instance);
-			server = ServerBuilder.forPort(port).useTransportSecurity(new File("tlscert/backupServer.crt"), 
-        	new File("tlscert/backupServer.pem")).addService(impl).build();
-			server.start();
+		try{
+			createServer(instance);
+		} catch (IOException ex){
+			System.err.println("IOException with message: " + ex.getMessage() + " and cause:" + ex.getCause());
+			System.exit(-1);
 		}
 
 		// Server threads are running in the background.
@@ -78,19 +77,37 @@ public class server {
 	}
 
 
-	public static void createClient() throws StatusRuntimeException, SSLException{
-		final String target = backupHostName + ":" + (port + 1);
+	public static void createServer(int instance) throws IOException{
+		if(instance==1){
+			impl = new mainServerServiceImpl();
+			server = ServerBuilder.forPort(port + instance).useTransportSecurity(new File("tlscert/server.crt"),
+        	new File("tlscert/server.pem")).addService(impl).build();
+			server.start();
+		}
+		else{
+			impl = new backupServerServiceImpl(instance);
+			server = ServerBuilder.forPort(port + instance).useTransportSecurity(new File("tlscert/backupServer.crt"), 
+        	new File("tlscert/backupServer.pem")).addService(impl).build();
+			server.start();
+		}
+	}
+
+
+	public static void createClient(int instance, String host) throws StatusRuntimeException, SSLException{
+		clientActive = false;
+		final String target = host + ":" + (port + instance + 1);
 		File tls_cert = new File("tlscert/backupServer.crt");
 		
 		channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
 		stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
+		clientActive = true;
 		
-		//---just for testing---
+		//---just for testing, delete laters---
 		MainBackupServer.HelloRequest request = MainBackupServer.HelloRequest.newBuilder().setName("friend").build();
 		MainBackupServer.HelloResponse response = stub.greeting(request);
 		System.out.println(response);
 	}
-
+	
 
 	public Server getServer(){
 		return server;
@@ -98,5 +115,13 @@ public class server {
 
 	public ManagedChannel getChannel(){
 		return channel;
+	}
+
+	public MainBackupServerServiceGrpc.MainBackupServerServiceBlockingStub getStub(){
+		return stub;
+	}
+
+	public boolean getClientActive(){
+		return clientActive;
 	}
 }
