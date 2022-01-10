@@ -13,6 +13,8 @@ import java.io.InvalidClassException;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.sql.*;
+
 import com.google.protobuf.ByteString;
 
 
@@ -22,6 +24,10 @@ public class mainServer {
     ManagedChannel channel;
     MainBackupServerServiceGrpc.MainBackupServerServiceBlockingStub stub;
     boolean clientActive = false;
+    private databaseAccess database = new databaseAccess();
+    Connection connection = database.connect();
+    private String userName;
+    private String password;
 
 
     public mainServer(Boolean flag, ManagedChannel Channel, MainBackupServerServiceGrpc.MainBackupServerServiceBlockingStub Stub){
@@ -42,8 +48,17 @@ public class mainServer {
 
     
     public void signUp(String username, String password) throws Exception{
-        //---signup code later---
-        if(true) return;
+
+        Statement stmt = connection.createStatement();
+        ResultSet rs = stmt.executeQuery("select * from users where username=" + username);
+        if(!rs.next()){
+            System.out.println("Creating new user account. Adding it to the database.\n");
+            rs = stmt.executeQuery("insert into users(username, password) values(" + username + "," + password + ")");
+            while (rs.next()) {
+				String userName = rs.getString("username");
+				System.out.println(userName + " now has an account.\n");
+			} 
+        }
         else
             throw new ExistentUsernameException(); 
     }
@@ -84,22 +99,50 @@ public class mainServer {
 
 
     public void share(String fileID, String cookie, List<String> users) throws Exception{
+
+/*         Statement stmt = connection.createStatement();
+        ResultSet rs = stmt.executeQuery("select * from users where username=" + username);
+        if(rs.next()){
+            Syste.ou.println("Sharing " + fileID + " with the following users: " + users.toString() + "\n");
+            ResultSet rs = stmt.executeQuery("insert into files(filename, allowedusers, owner) values(" + fileID + "," + allowedusers + "," + owner + ")");
+            while (rs.next()) {
+				String userName = rs.getString("username");
+				System.out.println(userName + " now has an account.\n");
+			} 
+        }
+        else
+            throw new ExistentUsernameException(); 
+
         //---share code later---
         if(true) return;
         else
-            throw new UserAlreadyHasAccessException(); 
+            throw new UserAlreadyHasAccessException();  */
     }
 
 
     public void unshare(String fileID, String cookie, List<String> users) throws Exception{
+/* 
+        String owner;
+
+        ResultSet rs = stmt.executeQuery("select owner from files where filename=" + fileID);
+
+        owner = rs.getString("owner");
+
+        ResultSet rs = stmt.executeQuery("select allowedusers from files where filename=" + fileID);
+
+        ResultSet rs = stmt.executeQuery("delete from files where filename=" + fileID);
+
+        ResultSet rs = stmt.executeQuery("insert into files(filename, allowedusers, owner) values(" + fileID + "," + allowedusers + "," + owner + ")");
+
         //---unshare code later---
         if(true) return;
         else
-            throw new NotSharedWithUserException(); 
+            throw new NotSharedWithUserException();  */
     }
 
 
     public void deleteUser(String username, String password) throws Exception{
+
         //---delete user code later---
         if(true) return;
         else
