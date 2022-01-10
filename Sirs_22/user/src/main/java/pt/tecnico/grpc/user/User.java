@@ -4,13 +4,20 @@ package pt.tecnico.grpc.user;
 import pt.tecnico.grpc.UserMainServer;
 import pt.tecnico.grpc.UserMainServerServiceGrpc;
 
+import java.util.Scanner;
+import java.io.DataOutputStream;
+
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
+import io.grpc.netty.NettyChannelBuilder;
+import io.grpc.netty.GrpcSslContexts;
+import java.io.File;
+
 
 public class User {
 
 	public static void main(String[] args) throws Exception {
 		System.out.println(User.class.getSimpleName());
+		Scanner myObj = new Scanner(System.in);
 
 		// receive and print arguments
 		System.out.printf("Received %d arguments%n", args.length);
@@ -18,26 +25,76 @@ public class User {
 			System.out.printf("arg[%d] = %s%n", i, args[i]);
 		}
 
-		// check arguments
-/* 		if (args.length < 2) {
-			System.err.println("Argument(s) missing!");
-			System.err.printf("Usage: java %s host port%n", HelloClient.class.getName());
+		if (args.length != 2) {
+			System.err.println("Invalid Number of Arguments");
+			myObj.close();
 			return;
-		} */
+		} 
 
 		final String host = args[0];
 		final int port = Integer.parseInt(args[1]);
 		final String target = host + ":" + port;
 
+		String[] command;
+		String str;
+		final String id = "aluno";
+		final String password = "password";
+
 		// Channel is the abstraction to connect to a service endpoint
-		// Let us use plaintext communication because we do not have certificates
-		final ManagedChannel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
+		File tls_cert = new File("../server/tlscert/server.crt");
+		final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+
+		UserImpl user = new UserImpl(host, port);
+
+		while(myObj.hasNext()){
+			System.out.print("> ");
+			str = myObj.nextLine();
+			command = str.split("\\s+");
+			
+			switch (command[0]) {
+				case "sign-up":
+					user.signup(id, password);
+					break;
+				case "login":
+					user.login(id, password);
+					break;
+				case "logout":
+					user.logout(id);
+					break;
+				case "download":
+					user.download(command[1]);
+					break;
+				case "help":
+					System.out.printf("Comandos disponíveis:\n");
+					System.out.printf(" sign-up\n");
+					System.out.printf(" login\n");
+					System.out.printf(" logout\n");
+					System.out.printf(" download <id do ficheiro>\n");
+					System.out.printf(" exit: terminar o programa\n");
+					break;
+				case "exit":
+					return;
+				default: 
+					System.out.printf("Message not found%n");
+					break;
+			}
+		}
+		myObj.close();
+		/*public static void createConnection(String host, int port) throws StatusRuntimeException, SSLException{
+
+			final String target = host + ":" + (port + instance + 1);
+			File tls_cert = new File("tlscert/backupServer.crt");
+			
+			//---just for testing, delete laters---
+			
+		}*/
 
 		// It is up to the client to determine whether to block the call
 		// Here we create a blocking stub, but an async stub,
 		// or an async stub with Future are always possible.
 		UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
 		UserMainServer.HelloRequest request = UserMainServer.HelloRequest.newBuilder().setName("friend").build();
+
 
 		// Finally, make the call using the stub
 		UserMainServer.HelloResponse response = stub.greeting(request);
