@@ -122,7 +122,7 @@ public class mainServer {
                 }
                 //Integer equals = dbPassword.compareTo(password); // 0 se sao iguais
                 if((dbPassword.compareTo(password)) != 0){
-                    throw new RansomwareAttackException();
+                    throw new WrongPasswordException();
                 }
                 else{
                     System.out.println("User " + username + " logged in with password " + password + ".");
