@@ -65,7 +65,7 @@ message downloadResponse{
 
 message shareRequest{
 	string fileId = 1;
-	repeated string userName = 2; 
+	string userName = 2; 
 	string cookie = 3;
 }
 

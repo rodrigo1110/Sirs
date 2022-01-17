@@ -8,6 +8,8 @@ import java.util.Scanner;
 import java.io.DataOutputStream;
 
 import io.grpc.ManagedChannel;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.GrpcSslContexts;
 import java.io.File;
@@ -46,38 +48,67 @@ public class User {
 
 		UserImpl user = new UserImpl(host, port);
 
+		System.out.println("==========================");
+		System.out.print("= Remote Document Access =\n");
+		System.out.println("==========================");
+
+
+		System.out.printf("Avaliable operations:\n");
+		System.out.printf(" - signup\n");
+		System.out.printf(" - login\n");
+		System.out.printf(" - logout\n");
+		System.out.printf(" - download\n");
+		System.out.printf(" - upload\n"); 
+		System.out.printf(" - exit\n");
+
 		while(myObj.hasNext()){
 			System.out.print("> ");
 			str = myObj.nextLine();
 			command = str.split("\\s+");
 			
-			switch (command[0]) {
-				case "sign-up":
-					user.signup(id, password);
-					break;
-				case "login":
-					user.login(id, password);
-					break;
-				case "logout":
-					user.logout(id);
-					break;
-				case "download":
-					user.download(command[1]);
-					break;
-				case "help":
-					System.out.printf("Comandos disponíveis:\n");
-					System.out.printf(" sign-up\n");
-					System.out.printf(" login\n");
-					System.out.printf(" logout\n");
-					System.out.printf(" download <id do ficheiro>\n");
-					System.out.printf(" exit: terminar o programa\n");
-					break;
-				case "exit":
-					return;
-				default: 
-					System.out.printf("Message not found%n");
-					break;
+			try{
+				switch (command[0]) {
+					case "signup":
+						user.signup( target);
+						break;
+					case "login":
+						user.login(target);
+						break;
+					case "logout":
+						user.logout(id);
+						break;
+					case "download":
+						user.download(target);
+						break;
+					case "upload":
+						user.upload(target);
+						break;
+					case "share":
+						user.share(target);
+						break;
+					case "help":
+						System.out.printf("Comandos disponíveis:\n");
+						System.out.printf(" sign-up\n");
+						System.out.printf(" login\n");
+						System.out.printf(" logout\n");
+						System.out.printf(" download <id do ficheiro>\n");
+						System.out.printf(" exit: terminar o programa\n");
+						break;
+					case "exit":
+						return;
+					default: 
+						System.out.printf("Message not found%n");
+						break;
+				}
+			} catch(StatusRuntimeException e){
+				if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){//ransomware
+					System.out.println("Ransmomware");
+				}
+				else{
+					System.out.println(e.getStatus().getDescription());
+				}
 			}
+
 		}
 		myObj.close();
 		/*public static void createConnection(String host, int port) throws StatusRuntimeException, SSLException{

@@ -10,8 +10,12 @@ import io.grpc.ManagedChannel;
 
 import java.io.File;
 import java.io.InvalidClassException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+
+import java.io.*;
+
 
 import java.sql.*;
 
@@ -48,30 +52,100 @@ public class mainServer {
 
     
     public void signUp(String username, String password) throws Exception{
+        if(checkInput(username, password)){
 
-        Statement stmt = connection.createStatement();
-        ResultSet rs = stmt.executeQuery("select * from users where username=" + username);
-        if(!rs.next()){
-            System.out.println("Creating new user account. Adding it to the database.\n");
-            rs = stmt.executeQuery("insert into users(username, password) values(" + username + "," + password + ")");
-            while (rs.next()) {
-				String userName = rs.getString("username");
-				System.out.println(userName + " now has an account.\n");
-			} 
+            String query = "SELECT username FROM users WHERE username=?";
+
+            try {
+                PreparedStatement st = connection.prepareStatement(query);
+                st.setString(1, username);
+            
+                ResultSet rs = st.executeQuery();        
+
+                if(rs.next()) {                       
+                    String name = rs.getString(1);        
+                    System.out.println("Username = " + name);
+                    throw new ExistentUsernameException();
+                }
+                else{
+
+                    this.userName = username;
+                    this.password = password;
+
+                    query = "INSERT INTO users ("
+                    + " username,"
+                    + " password ) VALUES ("
+                    + "?, ?)";
+        
+                    try {
+                        st = connection.prepareStatement(query);
+                        st.setString(1, username);
+                        st.setString(2, password);
+                    
+                        st.executeUpdate();
+                        st.close();
+                      } catch(SQLException e){
+                          System.out.println("!!!!!!" + e);
+                          throw new ExistentUsernameException();
+                      }
+                }
+            } catch(SQLException e){
+                System.out.println(e);
+            }         
         }
-        else
-            throw new ExistentUsernameException(); 
     }
 
 
     public String login(String username, String password) throws Exception{
-        //---login code later---
-        if(1==2)
-            return "Cookie :-9";
+        /* talvez verificar se user existe */
+        String dbPassword = "";
+
+        System.out.println("User " + username + " has attempted to login with password " + password + ".");
+
+        if(checkInput(username, password)){
+
+            String query = "SELECT password FROM users WHERE username=?";
+
+            try {
+                PreparedStatement st = connection.prepareStatement(query);
+                st.setString(1, username);
+            
+                ResultSet rs = st.executeQuery();        
+
+                while (rs.next()) {                       
+                    dbPassword = rs.getString(1);        
+                    
+                    System.out.println("Password from database = " + dbPassword);
+                    System.out.println("Password from user = " + password);
+                    System.out.println("passwords iguais: " + dbPassword.compareTo(password));
+
+                }
+                //Integer equals = dbPassword.compareTo(password); // 0 se sao iguais
+                if((dbPassword.compareTo(password)) != 0){
+                    throw new RansomwareAttackException();
+                }
+                else{
+                    System.out.println("User " + username + " logged in with password " + password + ".");
+                    this.userName = username;
+                    this.password = password;
+                }
+
+/*                 st.close();                       
+                rs.close(); */
+
+                } catch(SQLException e){
+                    System.out.println(e);
+                }
+
+            return "Cookie?";
+        }
         else
             throw new RansomwareAttackException();
     }
 
+    public boolean checkInput(String userName, String password){
+        return userName.length() <= 45 && userName.length() > 0 && password.length() <= 45 && password.length() > 0;
+    }
 
     public void logout(String cookie) throws Exception{
         //---logout code later---
@@ -82,58 +156,102 @@ public class mainServer {
 
 
     public void upload(String fileID, String cookie, ByteString file) throws Exception{
-        //---upload code later---
-        if(true) return;
-        else
-            throw new InvalidCookieException(); 
+        try {
+            //for testing, creates file with same content to check byte conversion to string
+            File myObj = new File(fileID);
+            if (myObj.createNewFile()) {
+              System.out.println("File created: " + myObj.getName());
+
+              OutputStream os = new FileOutputStream(myObj);
+  
+              os.write(file.toByteArray());
+              System.out.println("Successfully byte inserted");
+      
+              // Close the file
+              os.close();
+            } 
+            
+            else {
+              System.out.println("File already exists.");
+            }
+          
+        } catch(Exception e){
+            System.out.println(e.toString());
+        }
+
+        String query = "INSERT INTO files ("
+        + " filename,"
+        + " filecontent,"
+        + " fileowner ) VALUES ("
+        + "?, ?, ?)";
+
+        try {
+            PreparedStatement st = connection.prepareStatement(query);
+            st.setString(1, fileID);
+            st.setBytes(2, file.toByteArray());
+            st.setString(3, userName);
+
+        
+            st.executeUpdate();
+            st.close();
+          } catch(SQLException e){
+              System.out.println(e);
+          }
+
     }
 
 
     public ByteString download(String fileID, String cookie) throws Exception{
-        //---download code later---
-        if(true)
-            return ByteString.copyFromUtf8("Future conversion will be from file to bytestring");
-        else
-            throw new FileUnknownException(); 
+        /* falta verificacao de autorizacoes */
+        String query = "SELECT filecontent FROM files WHERE filename=?";
+
+        try {
+            PreparedStatement st = connection.prepareStatement(query);
+            st.setString(1, fileID);
+        
+            ResultSet rs = st.executeQuery();        
+
+            if (rs.next()) {      
+
+                ByteString bytestring = ByteString.copyFrom(rs.getBytes(1));
+                System.out.println("File content = " + bytestring.toStringUtf8());
+
+                return bytestring;
+            }
+            else{
+                throw new FileUnknownException();
+            }
+
+        } catch(SQLException e){
+                System.out.println(e);
+        }
+        return ByteString.copyFromUtf8("ERRO");
     }
 
 
-    public void share(String fileID, String cookie, List<String> users) throws Exception{
+    public void share(String fileID, String cookie, String user) throws Exception{
+        /* Fazer: acrescentar useralreadyhasaccessexception + avisar user se um username estiver errado*/
+        String query = "INSERT INTO permissions ("
+        + " filename,"
+        + " username ) VALUES ("
+        + "?, ?)";
 
-/*         Statement stmt = connection.createStatement();
-        ResultSet rs = stmt.executeQuery("select * from users where username=" + username);
-        if(rs.next()){
-            Syste.ou.println("Sharing " + fileID + " with the following users: " + users.toString() + "\n");
-            ResultSet rs = stmt.executeQuery("insert into files(filename, allowedusers, owner) values(" + fileID + "," + allowedusers + "," + owner + ")");
-            while (rs.next()) {
-				String userName = rs.getString("username");
-				System.out.println(userName + " now has an account.\n");
-			} 
-        }
-        else
-            throw new ExistentUsernameException(); 
+        try {
+            PreparedStatement st = connection.prepareStatement(query);
+            st.setString(1, fileID);
+            st.setString(2, user);
+        
+            st.executeUpdate();
+            st.close();
+            } catch(SQLException e){
+                System.out.println("?????" + e);
 
-        //---share code later---
-        if(true) return;
-        else
-            throw new UserAlreadyHasAccessException();  */
+            }
     }
 
 
     public void unshare(String fileID, String cookie, List<String> users) throws Exception{
 /* 
-        String owner;
-
-        ResultSet rs = stmt.executeQuery("select owner from files where filename=" + fileID);
-
-        owner = rs.getString("owner");
-
-        ResultSet rs = stmt.executeQuery("select allowedusers from files where filename=" + fileID);
-
-        ResultSet rs = stmt.executeQuery("delete from files where filename=" + fileID);
-
-        ResultSet rs = stmt.executeQuery("insert into files(filename, allowedusers, owner) values(" + fileID + "," + allowedusers + "," + owner + ")");
-
         //---unshare code later---
         if(true) return;
         else
