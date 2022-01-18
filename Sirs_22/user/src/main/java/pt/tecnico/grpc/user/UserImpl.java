@@ -25,6 +25,7 @@ import com.google.protobuf.ByteString;
 public class UserImpl {
     private String host;
 	private int port;
+    private String cookie = "";
 
 
     public UserImpl(String host, int port){
@@ -46,6 +47,10 @@ public class UserImpl {
         /* Para apagar depois, claro */
         System.out.println("You entered the password " + password);
         System.out.println("------------------------------");
+
+
+        //codigo hash da password + encriptar com privada do cliente
+        //criar chave publica e provada do novo user. Privada fica (aqui) no cliente. Publica vai para onde esta a publica do servidor
 
         File tls_cert = new File("../server/tlscert/server.crt");
         try {
@@ -78,7 +83,12 @@ public class UserImpl {
         String password = System.console().readLine();
         /* Para apagar depois, claro */
         System.out.println("You entered the password " + password);
-        System.out.println("------------------------------");
+        System.out.println("-------- ----------------------");
+
+
+        //codigo hash da password + encriptar com privada do cliente
+
+        //(password) +servidor , (password)- cliente)+ servidor
 
         File tls_cert = new File("../server/tlscert/server.crt");
         try {
@@ -90,6 +100,7 @@ public class UserImpl {
             UserMainServer.loginResponse response = stub.login(request);
     
             System.out.println(response);
+            this.cookie = response.getCookie();
 
         } catch (SSLException e) {
             e.printStackTrace();
@@ -118,7 +129,11 @@ public class UserImpl {
             userName = System.console().readLine();
             listOfUsers.add(userName);
         }
+        //delete de 'x'
+        listOfUsers.remove(listOfUsers.size()-1);
 
+        //para testar
+        System.out.println("list of users to string: " + listOfUsers.toString());
         System.out.println(listOfUsers.toString());
         System.out.println(listOfUsers.size());
 
@@ -127,7 +142,7 @@ public class UserImpl {
             final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
         
             UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
-            UserMainServer.shareRequest request = UserMainServer.shareRequest.newBuilder().setFileId(fileName).setUserName(userName).setCookie("cookieee").build();
+            UserMainServer.shareRequest request = UserMainServer.shareRequest.newBuilder().setFileId(fileName).addAllUserName(listOfUsers).setCookie("cookieee").build();
     
             stub.share(request);
             
@@ -159,7 +174,7 @@ public class UserImpl {
             final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
         
             UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
-            UserMainServer.downloadRequest request = UserMainServer.downloadRequest.newBuilder().setFileId(fileName).setCookie("COOKIE DO DOWNLOAD").build();
+            UserMainServer.downloadRequest request = UserMainServer.downloadRequest.newBuilder().setFileId(fileName).setCookie(this.cookie).build();
     
             UserMainServer.downloadResponse response = stub.download(request);
 
@@ -216,7 +231,7 @@ public class UserImpl {
                 final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
             
                 UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
-                UserMainServer.uploadRequest request = UserMainServer.uploadRequest.newBuilder().setFileId(fileName).setFileContent(bytestring).setCookie("COOKIE DO UPLOAD").build();
+                UserMainServer.uploadRequest request = UserMainServer.uploadRequest.newBuilder().setFileId(fileName).setFileContent(bytestring).setCookie(cookie).build();
         
                 stub.upload(request);
                     

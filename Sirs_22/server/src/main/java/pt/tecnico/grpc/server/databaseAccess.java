@@ -31,7 +31,10 @@ public class databaseAccess {
 
             while (rs.next()) {
 				String userName = rs.getString("username");
-				System.out.println(userName + " now has an account.\n");
+                String password = rs.getString("password");
+				String cookie = rs.getString("cookie");
+
+				System.out.println(userName + password + cookie + " now has an account.\n");
 			} 
 
         } catch (SQLException e) {

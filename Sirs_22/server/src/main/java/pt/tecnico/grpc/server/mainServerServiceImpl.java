@@ -123,7 +123,7 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override 
 	public void share(UserMainServer.shareRequest request, StreamObserver<UserMainServer.shareResponse> responseObserver){
 		try{
-			server.share(request.getFileId(),request.getCookie(),request.getUserName());
+			server.share(request.getFileId(),request.getCookie(),request.getUserNameList());
 
 			UserMainServer.shareResponse response = UserMainServer.shareResponse.newBuilder().build();
 			responseObserver.onNext(response); 
@@ -141,7 +141,7 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override 
 	public void unshare(UserMainServer.unshareRequest request, StreamObserver<UserMainServer.unshareResponse> responseObserver){
 		try{
-			server.share(request.getFileId(),request.getCookie(),request.getUserNameList());
+			server.unshare(request.getFileId(),request.getCookie(),request.getUserNameList());
 
 			UserMainServer.unshareResponse response = UserMainServer.unshareResponse.newBuilder().build();
 			responseObserver.onNext(response); 
