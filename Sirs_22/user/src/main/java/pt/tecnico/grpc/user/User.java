@@ -75,16 +75,22 @@ public class User {
 						user.login(target);
 						break;
 					case "logout":
-						user.logout(id);
+						user.logout();
 						break;
 					case "download":
-						user.download(target);
+						user.download();
 						break;
 					case "upload":
-						user.upload(target);
+						user.upload();
 						break;
 					case "share":
-						user.share(target);
+						user.share();
+						break;
+					case "deleteUser":
+						user.deleteUser(target);
+						break;
+					case "deleteFile":
+						user.deleteFile();
 						break;
 					case "help":
 						System.out.printf("Comandos disponíveis:\n");

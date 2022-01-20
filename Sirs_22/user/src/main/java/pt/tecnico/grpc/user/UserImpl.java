@@ -26,6 +26,8 @@ public class UserImpl {
     private String host;
 	private int port;
     private String cookie = "";
+    ManagedChannel channel;
+    UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub;
 
 
     public UserImpl(String host, int port){
@@ -54,9 +56,9 @@ public class UserImpl {
 
         File tls_cert = new File("../server/tlscert/server.crt");
         try {
-            final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
         
-            UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
+            stub = UserMainServerServiceGrpc.newBlockingStub(channel);
             UserMainServer.signUpRequest request = UserMainServer.signUpRequest.newBuilder().setUserName(userName).setPassword(password).build();
     
             stub.signUp(request);
@@ -92,9 +94,9 @@ public class UserImpl {
 
         File tls_cert = new File("../server/tlscert/server.crt");
         try {
-            final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
         
-            UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
+            stub = UserMainServerServiceGrpc.newBlockingStub(channel);
             UserMainServer.loginRequest request = UserMainServer.loginRequest.newBuilder().setUserName(userName).setPassword(password).build();
     
             UserMainServer.loginResponse response = stub.login(request);
@@ -110,7 +112,7 @@ public class UserImpl {
 
     }
 
-    public void share(String target){
+    public void share(){
 
         System.out.println("------------------------------");
         System.out.print("Please, enter the name of the file you want to share: ");
@@ -137,30 +139,29 @@ public class UserImpl {
         System.out.println(listOfUsers.toString());
         System.out.println(listOfUsers.size());
 
-        File tls_cert = new File("../server/tlscert/server.crt");
-        try {
-            final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
-        
-            UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
+        //try {
             UserMainServer.shareRequest request = UserMainServer.shareRequest.newBuilder().setFileId(fileName).addAllUserName(listOfUsers).setCookie("cookieee").build();
     
             stub.share(request);
             
             /* se o nome de algum user esta mal, este user tem de ser avisado, por fazer!!!! Server envia mensagem a dizer que um nao existe?*/
 
-        } catch (SSLException e) {
+        /*} catch (SSLException e) {
             e.printStackTrace();
-        } 
+        } */
 
 
     }
 
-    public void logout(String id){
+    public void logout(){
 		
-        
+        UserMainServer.logoutRequest request = UserMainServer.logoutRequest.newBuilder().setCookie(cookie).build();
+		UserMainServer.logoutResponse response = stub.logout(request);
+
+        channel.shutdownNow();
     }
 
-    public void download(String target){
+    public void download(){
 		
         System.out.println("------------------------------");
         System.out.print("Please, enter the name of the file you want to download: ");
@@ -169,11 +170,11 @@ public class UserImpl {
         System.out.println("------------------------------");
 
 
-        File tls_cert = new File("../server/tlscert/server.crt");
-        try {
-            final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+        //File tls_cert = new File("../server/tlscert/server.crt");
+        //try {
+            /*final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
         
-            UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
+            UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);*/
             UserMainServer.downloadRequest request = UserMainServer.downloadRequest.newBuilder().setFileId(fileName).setCookie(this.cookie).build();
     
             UserMainServer.downloadResponse response = stub.download(request);
@@ -201,15 +202,15 @@ public class UserImpl {
                 System.out.println(e.toString());
             }
                 
-        } catch (SSLException e) {
+        /*} catch (SSLException e) {
             e.toString();
-        } 
+        } */
 
         System.out.println("Successful Download! You can find your downloaded file in...");
 
     }
     
-    public void upload(String target){
+    public void upload(){
 
         System.out.println("------------------------------");
         System.out.print("Please, enter the name of the file you want to upload: ");
@@ -225,23 +226,65 @@ public class UserImpl {
 
             ByteString bytestring = ByteString.copyFrom(byteArray);
 
-            File tls_cert = new File("../server/tlscert/server.crt");
 
-            try {
-                final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
-            
-                UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
+            //try {
+                
                 UserMainServer.uploadRequest request = UserMainServer.uploadRequest.newBuilder().setFileId(fileName).setFileContent(bytestring).setCookie(cookie).build();
         
                 stub.upload(request);
                     
-            } catch (SSLException e) {
+            /*} catch (SSLException e) {
                 e.toString();
-            }  
+            } */ 
         } catch (Exception e){
             System.out.println(e.toString());
         }
 
         System.out.println("Successful Upload!");
     }
+
+
+    public void deleteUser(String target){
+            
+        System.out.println("------------------------------");
+        System.out.print("Please, enter the username you want to delete: ");
+        String userName = System.console().readLine();
+        System.out.println("You entered the username " + userName);
+        System.out.println("------------------------------");
+
+        System.out.print("Please, enter your password: ");
+        String password = System.console().readLine();
+        /* Para apagar depois, claro */
+        System.out.println("You entered the password " + password);
+        System.out.println("-------- ----------------------");
+
+        File tls_cert = new File("../server/tlscert/server.crt");
+        try {
+            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+        
+            stub = UserMainServerServiceGrpc.newBlockingStub(channel);
+
+            UserMainServer.deleteUserRequest request = UserMainServer.deleteUserRequest.newBuilder().setUserName(userName).setPassword(password).build();
+            UserMainServer.deleteUserResponse response = stub.deleteUser(request);
+
+        } catch (SSLException e) {
+            e.printStackTrace();
+        }
+    
+    }
+
+    public void deleteFile(){
+
+        System.out.println("------------------------------");
+        System.out.print("Please, enter the name of the file you want to delete: ");
+        String fileName = System.console().readLine();
+        System.out.println("You entered the file " + fileName);
+        System.out.println("------------------------------");
+        
+        UserMainServer.deleteFileRequest request = UserMainServer.deleteFileRequest.newBuilder().setFileId(fileName).setCookie(cookie).build();
+        UserMainServer.deleteFileResponse response = stub.deleteFile(request);
+    
+
+    }
+
 }
