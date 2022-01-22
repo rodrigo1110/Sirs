@@ -11,10 +11,15 @@ import io.grpc.ManagedChannel;
 import java.io.File;
 import java.io.InvalidClassException;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
+import javax.crypto.Cipher;
+
+import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -55,7 +60,15 @@ public class mainServer {
         return "Hello my dear " + name + "!";
     }
     
-    
+    public String createFileChecksum(byte[] file) throws FileNotFoundException, IOException, NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+
+        md.update(file);
+      
+        String checksum = convertToHex(md.digest());
+        System.out.println("checksum ficheiro: " + checksum);
+        return checksum;
+    }   
     
     
     public String hashString(String secretString, byte[] salt) throws NoSuchAlgorithmException, NoSuchProviderException{
@@ -63,14 +76,14 @@ public class mainServer {
         String hashtext = null;
         MessageDigest md = MessageDigest.getInstance("SHA-256");
 
-        if(salt.length == 0)
-            salt = createSalt();
-        System.out.println("Sal de 20 bytes: " + salt);
-        md.update(salt);
+        if(salt.length != 0){
+            md.update(salt);
+            System.out.println("Sal: " + salt);
+        }
 
         byte[] messageDigest = md.digest(secretString.getBytes());
-
         hashtext = convertToHex(messageDigest);
+        System.out.println("hash text:" + hashtext);
         return hashtext;
     }
 
@@ -80,7 +93,6 @@ public class mainServer {
 
         while (hexText.length() < 32) 
             hexText = "0".concat(hexText);
-        System.out.println("hash text:" + hexText);
         return hexText;
     }
     
@@ -92,6 +104,25 @@ public class mainServer {
       return salt;
     }
 
+    //encrypt with public key --> server and user
+    /*private static byte[] encrypt(Key pubkey, byte[] text) {
+        try {
+            Cipher rsa;
+            rsa = Cipher.getInstance("RSA");
+            rsa.init(Cipher.ENCRYPT_MODE, pubkey);
+            return rsa.doFinal(text); //text.getBytes()
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }*/
+
+    //encrypt with private key --> server and user
+    //encrypt with symmetric key --> user
+
+    //decrypt with public key --> server and user
+    //decrypt with private key --> server and user
+    //decrypt with symmetric key --> user
 
     
     public void signUp(String username, String password) throws Exception{
@@ -137,8 +168,13 @@ public class mainServer {
         }
     }
 
-    public String createCookie(String userName, String password){
-        String cookie = userName + password;
+    public String createCookie(String userName, String password) throws NoSuchAlgorithmException, NoSuchProviderException{
+      
+        String hexSalt = convertToHex(createSalt());
+        //String salt_string = new String(createSalt(), StandardCharsets.UTF_8);
+
+        String cookie = userName + password + hexSalt;
+        System.out.println("bolacha: " + cookie);
         return cookie;
     }
 
@@ -217,7 +253,7 @@ public class mainServer {
                 
                             try {
                                 st = connection.prepareStatement(query);
-                                st.setString(1, cookie);
+                                st.setString(1, hashString(cookie, new byte[0]));
                                 st.setString(2, username);
                             
                                 st.executeUpdate();
@@ -390,6 +426,8 @@ public class mainServer {
             System.out.println(e.toString());
         }
 
+       createFileChecksum(file.toByteArray()); 
+
 //desencriptar a chave simetrica com a chave privada do servidor
 //desencriptar o ficheiro com a chave simetrica obtida antes
 //desencriptar o hash com a chave publica do cliente
@@ -459,7 +497,7 @@ public class mainServer {
 
         try {
             PreparedStatement st = connection.prepareStatement(query);
-            st.setString(1, cookie);
+            st.setString(1, hashString(cookie,new byte[0]));
         
             ResultSet rs = st.executeQuery();        
 
