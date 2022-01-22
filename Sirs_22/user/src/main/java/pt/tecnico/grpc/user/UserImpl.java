@@ -35,6 +35,9 @@ public class UserImpl {
         port = port;
 	}
 
+    public String getCookie(){
+        return cookie;
+    }
     public void signup(String target){
 		
         System.out.println("------------------------------");
@@ -139,10 +142,15 @@ public class UserImpl {
         System.out.println(listOfUsers.toString());
         System.out.println(listOfUsers.size());
 
+        //chave simetrica (que encriptou o ficheiro) encriptada com a chave publica do (cada um) cliente que tem acesso ao ficheiro
+
+
         //try {
-            UserMainServer.shareRequest request = UserMainServer.shareRequest.newBuilder().setFileId(fileName).addAllUserName(listOfUsers).setCookie("cookieee").build();
+            UserMainServer.shareRequest request = UserMainServer.shareRequest.newBuilder().setFileId(fileName).addAllUserName(listOfUsers).setCookie(cookie).build();
     
             stub.share(request);
+            System.out.println("The file " + fileName + " was successfully shared.");
+
             
             /* se o nome de algum user esta mal, este user tem de ser avisado, por fazer!!!! Server envia mensagem a dizer que um nao existe?*/
 
@@ -153,12 +161,63 @@ public class UserImpl {
 
     }
 
-    public void logout(){
-		
-        UserMainServer.logoutRequest request = UserMainServer.logoutRequest.newBuilder().setCookie(cookie).build();
-		UserMainServer.logoutResponse response = stub.logout(request);
+    public void unshare(){
 
-        channel.shutdownNow();
+        System.out.println("------------------------------");
+        System.out.print("Please, enter the name of the file you want to unshare: ");
+        String fileName = System.console().readLine();
+        System.out.println("You entered the file " + fileName);
+        System.out.println("------------------------------");
+
+        List<String> listOfUsers = new ArrayList<String>();
+        String userName = "";  
+        System.out.println("Please, enter the usernames of the users you want to unshare this file with.");
+        System.out.println("When you are done, press 'x'.");
+        Integer counter = 1;
+        while(!userName.equals("x")){
+            System.out.print("Username" + counter + ": ");
+            counter++;
+            userName = System.console().readLine();
+            listOfUsers.add(userName);
+        }
+        //delete de 'x'
+        listOfUsers.remove(listOfUsers.size()-1);
+
+        //para testar
+        System.out.println("list of users to string: " + listOfUsers.toString());
+        System.out.println(listOfUsers.toString());
+        System.out.println(listOfUsers.size());
+
+       // File tls_cert = new File("../server/tlscert/server.crt");
+/*         try {
+            final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+         */
+            UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
+            UserMainServer.unshareRequest request = UserMainServer.unshareRequest.newBuilder().setFileId(fileName).addAllUserName(listOfUsers).setCookie(cookie).build();
+    
+            stub.unshare(request);
+
+            System.out.println("The file " + fileName + " was successfully unshared.");
+
+/*         } catch (SSLException e) {
+            e.printStackTrace();
+        }  */
+    }
+    
+
+    public void logout(){
+/* 		try {
+ */            
+        UserMainServer.logoutRequest request = UserMainServer.logoutRequest.newBuilder().setCookie(cookie).build();
+        UserMainServer.logoutResponse response = stub.logout(request);
+
+            //channel.shutdownNow();
+/*         } catch (SSLException e) {
+            e.printStackTrace();
+        }  */
+
+        cookie = "";
+        System.out.println("Successful logout.");
     }
 
     public void download(){
@@ -180,7 +239,7 @@ public class UserImpl {
             UserMainServer.downloadResponse response = stub.download(request);
 
             try {
-                File file = new File(fileName);
+                File file = new File("downloads/" + fileName);
 
                 if (file.createNewFile()) {
 
@@ -191,6 +250,9 @@ public class UserImpl {
                   os.write(response.getFileContent().toByteArray());
           
                   os.close();
+
+                  System.out.println("Successful Download! You can find your downloaded file in your downloads directory.");
+
                 } 
                 
                 else {
@@ -206,7 +268,6 @@ public class UserImpl {
             e.toString();
         } */
 
-        System.out.println("Successful Download! You can find your downloaded file in...");
 
     }
     
@@ -220,27 +281,38 @@ public class UserImpl {
 
         try{
         
-            Path path = Paths.get("files/" + fileName);
+            Path path = Paths.get("uploads/" + fileName);
 
             byte[] byteArray = Files.readAllBytes(path);
 
             ByteString bytestring = ByteString.copyFrom(byteArray);
 
+            //a funcao de hash de ficheiros recebe argumento do tipo ByteString
+            //encripta a hash com a chave privada do cliente
+            //encripta o bytestring com chave simetrica (gerada por aes - 256, block cbc)
+            //encriptar chave simetrica com chave publica do servidor 
 
             //try {
                 
                 UserMainServer.uploadRequest request = UserMainServer.uploadRequest.newBuilder().setFileId(fileName).setFileContent(bytestring).setCookie(cookie).build();
         
                 stub.upload(request);
+
+                System.out.println("Successful Upload!");
+
                     
             /*} catch (SSLException e) {
                 e.toString();
             } */ 
         } catch (Exception e){
-            System.out.println(e.toString());
-        }
+            if(e.getClass().toString().compareTo("class java.nio.file.NoSuchFileException") == 0){
+                System.out.println("That file does not exist in your uploads directory.");
+            }
+            else{
+                System.out.println(e.toString());
+            }
+        } 
 
-        System.out.println("Successful Upload!");
     }
 
 

@@ -249,7 +249,9 @@ public class mainServer {
             if(rs.next()) {                       
                 String dbUserName = rs.getString(1);        
                 
-                System.out.println("O dono do fichero e " + dbUserName);
+                System.out.println("O dono do fichero na bd e " + dbUserName);
+                System.out.println("O dono do fichero na cookie e " + userName);
+
 
                 if(userName.compareTo(dbUserName) == 0){
                     System.out.println("Correct owner.");
@@ -293,10 +295,19 @@ public class mainServer {
     }
 
     public void logout(String cookie) throws Exception{
-        //---logout code later---
-        if(true) return;
-        else
-            throw new InvalidCookieException(); 
+        String query = "UPDATE users SET cookie=? WHERE cookie=?";
+                
+        try {
+            PreparedStatement st = connection.prepareStatement(query);
+            st.setString(1, "");
+            st.setString(2, cookie);
+        
+            st.executeUpdate();
+            st.close();
+          } catch(SQLException e){
+              System.out.println("Couldn't update cookie" + e);
+          }
+
     }
 
 
@@ -323,6 +334,19 @@ public class mainServer {
         } catch(Exception e){
             System.out.println(e.toString());
         }
+
+//desencriptar a chave simetrica com a chave privada do servidor
+//desencriptar o ficheiro com a chave simetrica obtida antes
+//desencriptar o hash com a chave publica do cliente
+//fazer hash do ficheiro e comparar --> desencriptar ficheiro
+
+//ou
+//cliente envia: (hash do ficheiro encriptado com a chave simetrica) encriptado com a chave privada do cliente, ficheiro encriptado com a  chave simetrica, chave simetrica encriptada com a chave publica do cliente + possivelmente o hash da chave simetrica encriptada com a chave publica do cliente e tudo isto encriptado com a chave privada do cliente
+//desencriptar o hash(este e o hash do ficheiro encriptado com a chave simetrica) com a chave publica do cliente
+//calcular a hash do ficheiro encriptado com a chave simetrica
+//guardar da bd tabela ficheiros e ficheiro encriptado com chave simetrica
+//guardar na tabla das permissoes a chave simetrica encriptada com a chave publica do cliente
+//ter em atencao: upload ficheiro novo vs. upload de um ficheiro que ja existe
 
         //vamos ter de ir consultar a tabela dos utilizadores para ver a qual corresponde a cookie recebida e a partir dai e que sabemos quem e o file owner
         String dbUserName = correspondentUser(cookie);
@@ -438,10 +462,18 @@ public class mainServer {
         //check if the file exists - done
         //check if "I" am the owner of the file - done, need to update after cookie done
         //check if user already had permission - done
+
+
+        //cliente pede ao servidor chave simetrica (que esta na bd encriptada com a publica do cliente) e a chave publica da pessoa com quem quer partilhar
+        //cliente encripta a chave simetrica com a chave publica (enviada pelo servidor) da pessoa com quem quer partilhar o ficheiro
+        //cliente envia esta chave simetrica encriptada com a publica da outra pessoa para o servidor colocar isto na coluna (chave) da tabela permissoes na linha da pessoa BOB
+        String dbUserName = correspondentUser(cookie);
+
+
         for (String userName : user) {
             if(checkIfFileExists(fileID)){
                 if(checkIfUserExists(userName)){
-                    if(checkFileOwner(fileID, this.userName)){ //este userName depois vem na cookie
+                    if(checkFileOwner(fileID, dbUserName)){
                         if(!checkIfUserAlreadyHasPermission(fileID, userName)){
 
                             String query = "INSERT INTO permissions ("
@@ -482,21 +514,57 @@ public class mainServer {
     }
 
 
-    public void unshare(String fileID, String cookie, List<String> users) throws Exception{
-/* 
-        //---unshare code later---
-        if(true) return;
-        else
-            throw new NotSharedWithUserException();  */
+    public void unshare(String fileID, String cookie, List<String> user) throws Exception{ //se um dos nomes inseridos pelo user estiver errado, mais nenhum e adicionado, por causa da excecao.
+        //check if the file exists - done
+        //check if "I" am the owner of the file - done, need to update after cookie done
+        //check if user already had permission - done
+
+        String dbUserName = correspondentUser(cookie);
+
+
+        for (String userName : user) {
+            if(checkIfFileExists(fileID)){
+                if(checkIfUserExists(userName)){
+                    if(checkFileOwner(fileID, dbUserName)){
+                        if(checkIfUserAlreadyHasPermission(fileID, userName)){
+
+                            String query = "DELETE FROM permissions WHERE filename=? AND username=?";
+                    
+                            try {
+                                PreparedStatement st = connection.prepareStatement(query);
+                                st.setString(1, fileID);
+                                st.setString(2, userName);
+                            
+                                st.executeUpdate();
+                                st.close();
+                            } catch(SQLException e){
+                                    System.out.println("?????" + e);
+                    
+                            }
+                        }
+                        else{
+                            throw new UserAlreadyHasAccessException(userName);
+                        }
+                    }
+                    else{
+                        throw new WrongOwnerException();
+                    }
+                }
+                else{
+                    throw new UserUnknownException(userName);
+                }    
+            }
+            else{
+                throw new FileUnknownException(fileID);
+            }
+
+        }
+
     }
 
 
     public void deleteUser(String username, String password) throws Exception{
-
-        //---delete user code later---
-        if(true) return;
-        else
-            throw new UserUnknownException(username); 
+        //FAZER DEPOIS DE JUNTAR O CODIGO
     }
 
 

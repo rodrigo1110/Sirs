@@ -52,70 +52,100 @@ public class User {
 		System.out.print("= Remote Document Access =\n");
 		System.out.println("==========================");
 
+		System.out.println("Type 'help' to see avaliable operations.");
 
-		System.out.printf("Avaliable operations:\n");
-		System.out.printf(" - signup\n");
-		System.out.printf(" - login\n");
-		System.out.printf(" - logout\n");
-		System.out.printf(" - download\n");
-		System.out.printf(" - upload\n"); 
-		System.out.printf(" - exit\n");
-
+		
 		while(myObj.hasNext()){
 			System.out.print("> ");
 			str = myObj.nextLine();
 			command = str.split("\\s+");
+
+			//avaliableOperations(user.getCookie());
 			
-			try{
-				switch (command[0]) {
-					case "signup":
-						user.signup( target);
-						break;
-					case "login":
-						user.login(target);
-						break;
-					case "logout":
-						user.logout();
-						break;
-					case "download":
-						user.download();
-						break;
-					case "upload":
-						user.upload();
-						break;
-					case "share":
-						user.share();
-						break;
-					case "deleteUser":
-						user.deleteUser(target);
-						break;
-					case "deleteFile":
-						user.deleteFile();
-						break;
-					case "help":
-						System.out.printf("Comandos disponíveis:\n");
-						System.out.printf(" sign-up\n");
-						System.out.printf(" login\n");
-						System.out.printf(" logout\n");
-						System.out.printf(" download <id do ficheiro>\n");
-						System.out.printf(" exit: terminar o programa\n");
-						break;
-					case "exit":
-						return;
-					default: 
-						System.out.printf("Message not found%n");
-						break;
+			if(user.getCookie().compareTo("") == 0){
+
+				try{
+					switch (command[0]) {
+						case "signup":
+							user.signup( target);
+							break;
+						case "login":
+							user.login(target);
+							break;
+						case "help":
+							System.out.printf("Avaliable operations:\n");
+							System.out.printf(" - signup\n");
+							System.out.printf(" - login\n");
+							System.out.printf(" - exit\n");
+							break;
+						case "exit":
+							return;
+						default: 
+							System.out.printf("That operation is unavailable.%n");
+							break;
+					}
+				} catch(StatusRuntimeException e){
+					if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){//ransomware
+						System.out.println("Ransmomware");
+					}
+					else{
+						System.out.println(e.getStatus().getDescription());
+					}
 				}
-			} catch(StatusRuntimeException e){
-				if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){//ransomware
-					System.out.println("Ransmomware");
-				}
-				else{
-					System.out.println(e.getStatus().getDescription());
+			}
+			else{
+
+				try{
+					switch (command[0]) {
+						case "logout":
+							user.logout();
+							break;
+						case "download":
+							user.download();
+							break;
+						case "upload":
+							user.upload();
+							break;
+						case "share":
+							user.share();
+							break;
+						case "unshare":
+							user.unshare();
+							break;
+						case "deleteUser":
+							break;
+						case "deleteFile":
+							break;
+						case "help":
+							System.out.printf("Avaliable operations:\n");
+							System.out.printf(" - logout\n");
+							System.out.printf(" - download\n");
+							System.out.printf(" - upload\n"); 
+							System.out.printf(" - share\n"); 
+							System.out.printf(" - unshare\n"); 
+							System.out.printf(" - deleteUser\n"); 
+							System.out.printf(" - deleteFile\n"); 
+							System.out.printf(" - exit\n");
+							break;
+						case "exit":
+							return;
+						default: 
+							System.out.printf("Message not found%n");
+							break;
+					}
+				} catch(StatusRuntimeException e){
+					if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){//ransomware
+						System.out.println("Ransmomware");
+					}
+					else{
+						System.out.println(e.getStatus().getDescription());
+					}
 				}
 			}
 
+
 		}
+		
 		myObj.close();
 		/*public static void createConnection(String host, int port) throws StatusRuntimeException, SSLException{
 
