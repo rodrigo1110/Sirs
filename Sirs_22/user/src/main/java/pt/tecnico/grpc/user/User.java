@@ -113,8 +113,10 @@ public class User {
 							user.unshare();
 							break;
 						case "deleteUser":
+							user.deleteUser(target);
 							break;
 						case "deleteFile":
+							user.deleteFile();
 							break;
 						case "help":
 							System.out.printf("Avaliable operations:\n");

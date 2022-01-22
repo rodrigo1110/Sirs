@@ -356,6 +356,7 @@ public class UserImpl {
         UserMainServer.deleteFileRequest request = UserMainServer.deleteFileRequest.newBuilder().setFileId(fileName).setCookie(cookie).build();
         UserMainServer.deleteFileResponse response = stub.deleteFile(request);
     
+        System.out.println("The file " + fileName + " was successfully deleted.");
 
     }
 

@@ -27,6 +27,42 @@ public class databaseAccess {
             System.out.println("Database connected!");
             
             Statement stmt = connection.createStatement();
+
+            /* para criar table users --- se isto resultar, verificar se existe, se nao, criar
+            String sql = "CREATE TABLE users " +
+            "(username VARCHAR(45) not NULL, " +
+            " password VARCHAR(45) not NULL, " + 
+            " cookie VARCHAR(45), " + 
+            " PRIMARY KEY ( username ))"; 
+
+            stmt.executeUpdate(sql);
+
+            System.out.println("Created table users in database...");   	  
+            */
+
+            /* para criar table files --- se isto resultar, verificar se existe, se nao, criar
+            String sql = "CREATE TABLE files " +
+            "(filename VARCHAR(45) not NULL, " +
+            " filecontent LONGTEXT not NULL, " + 
+            " fileowner VARCHAR(45) not NULL, " + 
+            " PRIMARY KEY ( filename ))"; 
+
+            stmt.executeUpdate(sql);
+
+            System.out.println("Created table files in database...");   	  
+            */
+
+            /* para criar table permissions --- se isto resultar, verificar se existe, se nao, criar
+            String sql = "CREATE TABLE permissions " +
+            "(filename VARCHAR(45) not NULL, " +
+            " username VARCHAR(45) not NULL, " + 
+            " PRIMARY KEY ( filename, username ))"; 
+
+            stmt.executeUpdate(sql);
+
+            System.out.println("Created table permissions in database...");   	  
+            */
+
             ResultSet rs = stmt.executeQuery("select * from users");
 
             while (rs.next()) {

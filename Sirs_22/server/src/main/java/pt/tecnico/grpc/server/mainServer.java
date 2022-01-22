@@ -563,15 +563,45 @@ public class mainServer {
     }
 
 
-    public void deleteUser(String username, String password) throws Exception{
-        //FAZER DEPOIS DE JUNTAR O CODIGO
+    public void deleteUser(String userName, String password) throws Exception{
+        //apagar ficheiros desta pessoa? sim - fazer
+        //aqui nao verificamos com a cookie. Se eu souber a password de outra pessoa, posso apagar essa pessoa
+        String query = "DELETE FROM users WHERE username=? AND password=?";
+                    
+        try {
+            PreparedStatement st = connection.prepareStatement(query);
+            st.setString(1, userName);
+            st.setString(2, password);
+        
+            st.executeUpdate();
+            st.close();
+        } catch(SQLException e){
+                System.out.println("hhhhhhhhhhh" + e);
+
+        }
     }
 
 
     public void deleteFile(String fileID, String cookie) throws Exception{
-        //---delete file code later---
-        if(true) return;
-        else
-            throw new UserUnknownException(fileID); 
+        //enviar excecao para o user
+    
+        String dbUserName = correspondentUser(cookie);
+
+        if(checkFileOwner(fileID, dbUserName)){
+
+            String query = "DELETE FROM files WHERE filename=?";
+                        
+            try {
+                PreparedStatement st = connection.prepareStatement(query);
+                st.setString(1, fileID);
+            
+                st.executeUpdate();
+                System.out.println("The file " + fileID + " was deleted.");
+                st.close();
+            } catch(SQLException e){
+                    System.out.println("?????" + e);
+
+            }
+        }
     }
 }
