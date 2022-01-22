@@ -10,10 +10,15 @@ import io.grpc.ManagedChannel;
 
 import java.io.File;
 import java.io.InvalidClassException;
+import java.math.BigInteger;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.NoSuchProviderException;
 import java.io.*;
 
 
@@ -51,9 +56,42 @@ public class mainServer {
     }
     
     
-    public String hashString(){
-        return ("ola");
+    
+    
+    public String hashString(String secretString, byte[] salt) throws NoSuchAlgorithmException, NoSuchProviderException{
+
+        String hashtext = null;
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+
+        if(salt.length == 0)
+            salt = createSalt();
+        System.out.println("Sal de 20 bytes: " + salt);
+        md.update(salt);
+
+        byte[] messageDigest = md.digest(secretString.getBytes());
+
+        hashtext = convertToHex(messageDigest);
+        return hashtext;
     }
+
+    private String convertToHex(byte[] messageDigest) {
+        BigInteger value = new BigInteger(1, messageDigest);
+        String hexText = value.toString(16);
+
+        while (hexText.length() < 32) 
+            hexText = "0".concat(hexText);
+        System.out.println("hash text:" + hexText);
+        return hexText;
+    }
+    
+    private byte[] createSalt() throws NoSuchAlgorithmException, NoSuchProviderException {
+      SecureRandom random = SecureRandom.getInstance("SHA1PRNG", "SUN");
+      byte[] salt = new byte[20];
+    
+      random.nextBytes(salt);
+      return salt;
+    }
+
 
     
     public void signUp(String username, String password) throws Exception{
@@ -74,24 +112,23 @@ public class mainServer {
                 }
                 else{
 
-                    this.userName = username;
-                    this.password = password;
-
                     query = "INSERT INTO users ("
                     + " username,"
-                    + " password ) VALUES ("
-                    + "?, ?)";
-        
+                    + " password, "
+                    + " salt ) VALUES ("
+                    + "?, ?, ?)";
+                    byte[] salt = createSalt();
                     try {
                         st = connection.prepareStatement(query);
                         st.setString(1, username);
-                        st.setString(2, password);
-                    
+                        st.setString(2, hashString(password, salt));
+                        st.setBytes(3, salt);
+
                         st.executeUpdate();
                         st.close();
                       } catch(SQLException e){
                           System.out.println("!!!!!!" + e);
-                          throw new ExistentUsernameException();
+                          //throw new ExistentUsernameException();
                       }
                 }
             } catch(SQLException e){
@@ -107,7 +144,7 @@ public class mainServer {
 
     public String login(String username, String password) throws Exception{
         
-
+        byte[] salt = new byte[0];
         String dbPassword = "";
 
         System.out.println("User " + username + " has attempted to login with password " + password + ".");
@@ -145,14 +182,32 @@ public class mainServer {
                             System.out.println("passwords iguais: " + dbPassword.compareTo(password));
         
                         }
+
+                        //
+                        query = "SELECT salt FROM users WHERE username=?";
+                        
+                        st = connection.prepareStatement(query);
+                        st.setString(1, username);
+                    
+                        rs = st.executeQuery();
+                        
+                        while (rs.next()) {                       
+                            salt = rs.getBytes(1);        
+                            System.out.println("Salt = " + salt);  
+                        }    
+                        String hashPassword = hashString(password,salt);                    
+
+
                         //Integer equals = dbPassword.compareTo(password); // 0 se sao iguais
-                        if((dbPassword.compareTo(password)) != 0){
+                        if((dbPassword.compareTo(hashPassword)) != 0){
                             throw new WrongPasswordException();
                         }
                         else{
                             System.out.println("User " + username + " logged in with password " + password + ".");
                             this.userName = username;
                             this.password = password;
+
+
                                                         
                             //creates cookie and adds it to database
                             String cookie = createCookie(username, password);
@@ -392,9 +447,13 @@ public class mainServer {
         }
     }
 
-    public String correspondentUser(String cookie){
+    public String correspondentUser(String cookie) throws Exception{
 
         String dbUserName = "";
+
+        if (cookie.length() == 0)
+            throw new InvalidCookieException();
+
         String query = "SELECT username FROM users WHERE cookie=?";
 
 
@@ -408,8 +467,9 @@ public class mainServer {
                 dbUserName = rs.getString("username");
                 System.out.println("Username: " + dbUserName);
                 return dbUserName;
-
             }
+            else
+                throw new InvalidCookieException();
         } catch(SQLException e){
                 System.out.println(e);
         }
@@ -564,21 +624,120 @@ public class mainServer {
 
 
     public void deleteUser(String userName, String password) throws Exception{
-        //apagar ficheiros desta pessoa? sim - fazer
-        //aqui nao verificamos com a cookie. Se eu souber a password de outra pessoa, posso apagar essa pessoa
-        String query = "DELETE FROM users WHERE username=? AND password=?";
-                    
+
+        byte[] salt = new byte[0];
+        String query = "SELECT password FROM users WHERE username=?";
+        String dbPassword = "";
         try {
             PreparedStatement st = connection.prepareStatement(query);
             st.setString(1, userName);
-            st.setString(2, password);
         
-            st.executeUpdate();
-            st.close();
-        } catch(SQLException e){
-                System.out.println("hhhhhhhhhhh" + e);
+            ResultSet rs = st.executeQuery();        
 
+            if(rs.next()) {                       
+                dbPassword = rs.getString(1);        
+                
+                System.out.println("Password from database = " + dbPassword);
+                System.out.println("Password from user = " + password);
+                System.out.println("passwords iguais: " + dbPassword.compareTo(password));
+
+            }
+//
+            query = "SELECT salt FROM users WHERE username=?";
+                        
+            st = connection.prepareStatement(query);
+            st.setString(1, userName);
+        
+            rs = st.executeQuery();
+            
+            while (rs.next()) {                       
+                salt = rs.getBytes(1);        
+                System.out.println("Salt = " + salt);  
+            }    
+            String hashPassword = hashString(password,salt);     
+//
+            //Integer equals = dbPassword.compareTo(password); // 0 se sao iguais
+            if((dbPassword.compareTo(hashPassword)) != 0){
+                throw new WrongPasswordException();
+            }
+            else{
+                 query = "DELETE FROM users WHERE username=?";
+                    
+                try {
+                    st = connection.prepareStatement(query);
+                    st.setString(1, userName);
+                
+                    st.executeUpdate();
+                    st.close();
+                } catch(SQLException e){
+                        System.out.println(e);
+        
+                }
+        
+                //apagar permissoes dos ficheiros deste user
+                
+                query = "SELECT filename FROM files WHERE fileowner=?";
+        
+                try {
+                    st = connection.prepareStatement(query);
+                    st.setString(1, userName);
+                
+                    rs = st.executeQuery();        
+        
+                    while(rs.next()) {                       
+                        String fileName = rs.getString(1);        
+                        System.out.println("Filename = " + fileName);
+                        
+                        query = "DELETE FROM permissions WHERE filename=?";
+                                     
+                        try {
+                            st = connection.prepareStatement(query);
+                            st.setString(1, fileName);
+                        
+                            st.executeUpdate();
+                            st.close();
+                        } catch(SQLException e){
+                                System.out.println("deleting permissions of files belonging to deleted user" + e);
+        
+                        }
+                    }
+                }
+                catch(Exception e){
+                    System.out.println(e.toString());
+                }
+
+                //apagar permissoes deste user
+                query = "DELETE FROM permissions WHERE username=?";
+                            
+                try {
+                    st = connection.prepareStatement(query);
+                    st.setString(1, userName);
+                
+                    st.executeUpdate();
+                    st.close();
+                } catch(SQLException e){
+                        System.out.println("deleting this users permissions" + e);
+        
+                }
+        
+                //apagar ficheiros deste user
+                query = "DELETE FROM files WHERE fileowner=?";
+                            
+                try {
+                    st = connection.prepareStatement(query);
+                    st.setString(1, userName);
+                
+                    st.executeUpdate();
+                    st.close();
+                } catch(SQLException e){
+                        System.out.println("deleting files belonging to deleted user" + e);
+        
+                }
+            }
+        } catch(SQLException e){
+            System.out.println(e);
         }
+      
     }
 
 
@@ -602,6 +761,24 @@ public class mainServer {
                     System.out.println("?????" + e);
 
             }
+
+            //apagar permissoes associadas a este ficheiro
+            query = "DELETE FROM permissions WHERE filename=?";
+                        
+            try {
+                PreparedStatement st = connection.prepareStatement(query);
+                st.setString(1, fileID);
+            
+                st.executeUpdate();
+                st.close();
+            } catch(SQLException e){
+                    System.out.println("deleting this files permissions" + e);
+
+            }
+        
+        }
+        else{
+            throw new WrongOwnerException();
         }
     }
 }

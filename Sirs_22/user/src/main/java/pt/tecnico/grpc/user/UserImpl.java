@@ -234,7 +234,7 @@ public class UserImpl {
             /*final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
         
             UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);*/
-            UserMainServer.downloadRequest request = UserMainServer.downloadRequest.newBuilder().setFileId(fileName).setCookie(this.cookie).build();
+            UserMainServer.downloadRequest request = UserMainServer.downloadRequest.newBuilder().setFileId(fileName).setCookie(cookie).build();
     
             UserMainServer.downloadResponse response = stub.download(request);
 
@@ -338,6 +338,9 @@ public class UserImpl {
 
             UserMainServer.deleteUserRequest request = UserMainServer.deleteUserRequest.newBuilder().setUserName(userName).setPassword(password).build();
             UserMainServer.deleteUserResponse response = stub.deleteUser(request);
+
+            System.out.println("User deleted successfully!");
+
 
         } catch (SSLException e) {
             e.printStackTrace();

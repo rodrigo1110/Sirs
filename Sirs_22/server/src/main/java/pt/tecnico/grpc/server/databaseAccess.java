@@ -28,20 +28,21 @@ public class databaseAccess {
             
             Statement stmt = connection.createStatement();
 
-            /* para criar table users --- se isto resultar, verificar se existe, se nao, criar
+            // para criar table users --- se isto resultar, verificar se existe, se nao, criar
             String sql = "CREATE TABLE users " +
             "(username VARCHAR(45) not NULL, " +
-            " password VARCHAR(45) not NULL, " + 
-            " cookie VARCHAR(45), " + 
+            " password VARCHAR(80) not NULL, " + 
+            " cookie VARCHAR(80), " + 
+            " salt BLOB not NULL, " + 
             " PRIMARY KEY ( username ))"; 
 
             stmt.executeUpdate(sql);
 
             System.out.println("Created table users in database...");   	  
-            */
+             
 
-            /* para criar table files --- se isto resultar, verificar se existe, se nao, criar
-            String sql = "CREATE TABLE files " +
+             //para criar table files --- se isto resultar, verificar se existe, se nao, criar
+            sql = "CREATE TABLE files " +
             "(filename VARCHAR(45) not NULL, " +
             " filecontent LONGTEXT not NULL, " + 
             " fileowner VARCHAR(45) not NULL, " + 
@@ -50,18 +51,18 @@ public class databaseAccess {
             stmt.executeUpdate(sql);
 
             System.out.println("Created table files in database...");   	  
-            */
+            
 
-            /* para criar table permissions --- se isto resultar, verificar se existe, se nao, criar
-            String sql = "CREATE TABLE permissions " +
+            // para criar table permissions --- se isto resultar, verificar se existe, se nao, criar
+            sql = "CREATE TABLE permissions " +
             "(filename VARCHAR(45) not NULL, " +
             " username VARCHAR(45) not NULL, " + 
             " PRIMARY KEY ( filename, username ))"; 
 
             stmt.executeUpdate(sql);
 
-            System.out.println("Created table permissions in database...");   	  
-            */
+            System.out.println("Created table permissions in database...");    	  
+            
 
             ResultSet rs = stmt.executeQuery("select * from users");
 
@@ -74,8 +75,14 @@ public class databaseAccess {
 			} 
 
         } catch (SQLException e) {
-            throw new IllegalStateException("Cannot connect the database!", e);
-        }
+            if(e.getClass().toString().compareTo("class java.sql.SQLSyntaxErrorException") == 0){
+                System.out.println("Tables were not created. They already existed.");
+            }
+            else{
+                throw new IllegalStateException("Cannot connect the database!", e);
+            }
+        } 
+         
 
         return connection;
     }
