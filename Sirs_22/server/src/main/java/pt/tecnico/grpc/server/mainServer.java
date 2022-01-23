@@ -7,6 +7,8 @@ import pt.tecnico.grpc.MainBackupServerServiceGrpc;
 import pt.tecnico.grpc.MainBackupServer;
 
 import io.grpc.ManagedChannel;
+import io.grpc.netty.GrpcSslContexts;
+import io.grpc.netty.NettyChannelBuilder;
 
 import java.io.File;
 import java.io.InvalidClassException;
@@ -18,6 +20,8 @@ import java.util.List;
 import java.util.Random;
 
 import javax.crypto.Cipher;
+import javax.net.ssl.SSLException;
+
 import java.nio.file.Paths;
 import java.nio.file.*;
 import java.security.*;
@@ -42,7 +46,7 @@ public class mainServer {
     ManagedChannel channel;
     MainBackupServerServiceGrpc.MainBackupServerServiceBlockingStub stub;
     boolean clientActive = false;
-    private databaseAccess database = new databaseAccess();
+    private databaseAccess database = new databaseAccess("sirs");
     Connection connection = database.connect();
     private String userName;
     private String password;
@@ -168,11 +172,145 @@ public class mainServer {
     }
 
 
+    public void sendUserToBackUp(String username, String hashPassword, byte[] salt){
+
+        final String target = "localhost" + ":" + "8092";
+
+        ByteString saltByteString = ByteString.copyFrom(salt);
+
+        File tls_cert = new File("tlscert/backupServer.crt");
+        try{
+
+            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+        
+            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
+
+            MainBackupServer.writeUserRequest request = MainBackupServer.writeUserRequest.newBuilder().setUsername(username).setHashPassword(hashPassword).setSalt(saltByteString).build();
+            MainBackupServer.writeUserResponse response = stub.writeUser(request);
+        }
+        catch(SSLException e){
+            System.out.println(e);
+        }
+    }
 
 
+    public void sendPermissionToBackUp(String fileName, String userName){
+
+        final String target = "localhost" + ":" + "8092";
 
 
+        File tls_cert = new File("tlscert/backupServer.crt");
+        try{
+
+            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+        
+            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
+
+            MainBackupServer.writePermissionRequest request = MainBackupServer.writePermissionRequest.newBuilder().setFileName(fileName).setUserName(userName).build();
+            MainBackupServer.writePermissionResponse response = stub.writePermission(request);
+        }
+        catch(SSLException e){
+            System.out.println(e);
+        }
+    }
+
+    public void removePermissionFromBackUp(String fileName, String userName){
+
+        final String target = "localhost" + ":" + "8092";
+
+
+        File tls_cert = new File("tlscert/backupServer.crt");
+        try{
+
+            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+        
+            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
+
+            MainBackupServer.removePermissionRequest request = MainBackupServer.removePermissionRequest.newBuilder().setFileName(fileName).setUserName(userName).build();
+            MainBackupServer.removePermissionResponse response = stub.removePermission(request);
+        }
+        catch(SSLException e){
+            System.out.println(e);
+        }
+    }
+
+    public void sendFileToBackUp(String filename, ByteString filecontent,  String fileowner){
+
+        final String target = "localhost" + ":" + "8092";
+
+
+        File tls_cert = new File("tlscert/backupServer.crt");
+        try{
+
+            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+        
+            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
+
+            MainBackupServer.writeFileRequest request = MainBackupServer.writeFileRequest.newBuilder().setFileName(filename).setFileContent(filecontent).setFileOwner(fileowner).build();
+            MainBackupServer.writeFileResponse response = stub.writeFile(request);
+        }
+        catch(SSLException e){
+            System.out.println(e);
+        }
+    }
     
+    public void updateCookieBackUp(String userName, String cookie){
+ 
+        final String target = "localhost" + ":" + "8092";
+
+
+        File tls_cert = new File("tlscert/backupServer.crt");
+        try{
+
+            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+        
+            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
+
+            MainBackupServer.updateCookieRequest request = MainBackupServer.updateCookieRequest.newBuilder().setUserName(userName).setCookie(cookie).build();
+            MainBackupServer.updateCookieResponse response = stub.updateCookie(request);
+        }
+        catch(SSLException e){
+            System.out.println(e);
+        }
+    }
+   
+    public void deleteFileBackUp(String fileName){
+ 
+        final String target = "localhost" + ":" + "8092";
+
+        File tls_cert = new File("tlscert/backupServer.crt");
+        try{
+
+            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+        
+            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
+
+            MainBackupServer.deleteFileRequest request = MainBackupServer.deleteFileRequest.newBuilder().setFileName(fileName).build();
+            MainBackupServer.deleteFileResponse response = stub.deleteFile(request);
+        }
+        catch(SSLException e){
+            System.out.println(e);
+        }
+    }
+
+    public void deleteUserBackUp(String userName){
+ 
+        final String target = "localhost" + ":" + "8092";
+
+        File tls_cert = new File("tlscert/backupServer.crt");
+        try{
+
+            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+        
+            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
+
+            MainBackupServer.deleteUserRequest request = MainBackupServer.deleteUserRequest.newBuilder().setUserName(userName).build();
+            MainBackupServer.deleteUserResponse response = stub.deleteUser(request);
+        }
+        catch(SSLException e){
+            System.out.println(e);
+        }
+    }
     //encrypt with symmetric key --> user
 
     //decrypt with public key --> server and user
@@ -203,13 +341,13 @@ public class mainServer {
                     throw new ExistentUsernameException();
                 }
                 else{
-
                     query = "INSERT INTO users ("
                     + " username,"
                     + " password, "
                     + " salt ) VALUES ("
                     + "?, ?, ?)";
                     byte[] salt = createSalt();
+
                     try {
                         st = connection.prepareStatement(query);
                         st.setString(1, username);
@@ -218,10 +356,13 @@ public class mainServer {
 
                         st.executeUpdate();
                         st.close();
-                      } catch(SQLException e){
+                    } 
+                    catch(SQLException e){
                           System.out.println("!!!!!!" + e);
-                          //throw new ExistentUsernameException();
-                      }
+                    }
+
+                    sendUserToBackUp(username, hashString(password, salt), salt);
+
                 }
             } catch(SQLException e){
                 System.out.println(e);
@@ -328,9 +469,11 @@ public class mainServer {
                             
                                 st.executeUpdate();
                                 st.close();
-                              } catch(SQLException e){
-                                  System.out.println("Couldn't update cookie" + e);
-                              }
+                            } catch(SQLException e){
+                                System.out.println("Couldn't update cookie" + e);
+                            }
+
+                            updateCookieBackUp(username, hashString(cookie, new byte[0]));
 
                             return cookie;
                         }
@@ -456,19 +599,23 @@ public class mainServer {
     }
 
     public void logout(String cookie) throws Exception{
-        String query = "UPDATE users SET cookie=? WHERE cookie=?";
+
+        String dbUserName = correspondentUser(cookie);
+
+        String query = "UPDATE users SET cookie=? WHERE username=?";
                 
         try {
             PreparedStatement st = connection.prepareStatement(query);
             st.setString(1, "");
-            st.setString(2, cookie);
+            st.setString(2, dbUserName);
         
             st.executeUpdate();
             st.close();
-          } catch(SQLException e){
+        } 
+        catch(SQLException e){
               System.out.println("Couldn't update cookie" + e);
-          }
-
+        }
+        updateCookieBackUp(dbUserName, "");
     }
 
 
@@ -534,6 +681,8 @@ public class mainServer {
         } catch(SQLException e){
               System.out.println(e);
         }
+
+        sendFileToBackUp(fileID, file, dbUserName);
         // add owner to permissions table
 
         query = "INSERT INTO permissions ("
@@ -553,6 +702,8 @@ public class mainServer {
                 System.out.println("wwwww" + e);
 
         }
+
+        sendPermissionToBackUp(fileID, dbUserName);
     }
 
     public String correspondentUser(String cookie) throws Exception{
@@ -644,6 +795,7 @@ public class mainServer {
                     if(checkFileOwner(fileID, dbUserName)){
                         if(!checkIfUserAlreadyHasPermission(fileID, userName)){
 
+
                             String query = "INSERT INTO permissions ("
                             + " filename,"
                             + " username ) VALUES ("
@@ -660,6 +812,9 @@ public class mainServer {
                                     System.out.println("?????" + e);
                     
                             }
+
+                            sendPermissionToBackUp(fileID, userName);
+
                         }
                         else{
                             throw new UserAlreadyHasAccessException(userName);
@@ -705,10 +860,12 @@ public class mainServer {
                             
                                 st.executeUpdate();
                                 st.close();
-                            } catch(SQLException e){
+                            } 
+                            catch(SQLException e){
                                     System.out.println("?????" + e);
-                    
                             }
+
+                            removePermissionFromBackUp(fileID, userName);
                         }
                         else{
                             throw new UserAlreadyHasAccessException(userName);
@@ -841,6 +998,8 @@ public class mainServer {
                         System.out.println("deleting files belonging to deleted user" + e);
         
                 }
+
+                deleteUserBackUp(userName);
             }
         } catch(SQLException e){
             System.out.println(e);
@@ -865,9 +1024,9 @@ public class mainServer {
                 st.executeUpdate();
                 System.out.println("The file " + fileID + " was deleted.");
                 st.close();
-            } catch(SQLException e){
+            } 
+            catch(SQLException e){
                     System.out.println("?????" + e);
-
             }
 
             //apagar permissoes associadas a este ficheiro
@@ -881,12 +1040,12 @@ public class mainServer {
                 st.close();
             } catch(SQLException e){
                     System.out.println("deleting this files permissions" + e);
-
             }
-        
+            
+            deleteFileBackUp(fileID);
         }
         else{
-            throw new WrongOwnerException();
+            throw new WrongOwnerException(); //alterar esta excecao para recer delete/share
         }
     }
 }

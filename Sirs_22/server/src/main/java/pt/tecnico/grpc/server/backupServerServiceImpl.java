@@ -93,7 +93,7 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 	@Override
 	public void writeFile(MainBackupServer.writeFileRequest request, StreamObserver<MainBackupServer.writeFileResponse> responseObserver) {
 		try{
-			server.writeFile(request.getUsername(),request.getFileId(),request.getFileContent(),request.getSequence());
+			server.writeFile(request.getFileName(), request.getFileContent(), request.getFileOwner());
 
 			MainBackupServer.writeFileResponse response = MainBackupServer.writeFileResponse.newBuilder().build();
 			responseObserver.onNext(response);
@@ -122,6 +122,91 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 	public void readFile(MainBackupServer.readFileRequest request, StreamObserver<MainBackupServer.readFileResponse> responseObserver) {
 		try{
 			MainBackupServer.readFileResponse response  = server.readFile(request.getUsername(),request.getFileId());
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+	@Override
+	public void writeUser(MainBackupServer.writeUserRequest request, StreamObserver<MainBackupServer.writeUserResponse> responseObserver) {
+		try{
+			server.writeUser(request.getUsername(),request.getHashPassword(),request.getSalt());
+
+			MainBackupServer.writeUserResponse response = MainBackupServer.writeUserResponse.newBuilder().build();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+	
+	@Override
+	public void writePermission(MainBackupServer.writePermissionRequest request, StreamObserver<MainBackupServer.writePermissionResponse> responseObserver) {
+		try{
+			server.writePermission(request.getFileName(),request.getUserName());
+
+			MainBackupServer.writePermissionResponse response = MainBackupServer.writePermissionResponse.newBuilder().build();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+	@Override
+	public void removePermission(MainBackupServer.removePermissionRequest request, StreamObserver<MainBackupServer.removePermissionResponse> responseObserver) {
+		try{
+			server.removePermission(request.getFileName(),request.getUserName());
+
+			MainBackupServer.removePermissionResponse response = MainBackupServer.removePermissionResponse.newBuilder().build();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+	@Override
+	public void updateCookie(MainBackupServer.updateCookieRequest request, StreamObserver<MainBackupServer.updateCookieResponse> responseObserver) {
+		try{
+			server.updateCookie(request.getUserName(), request.getCookie());
+
+			MainBackupServer.updateCookieResponse response = MainBackupServer.updateCookieResponse.newBuilder().build();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+	@Override
+	public void deleteFile(MainBackupServer.deleteFileRequest request, StreamObserver<MainBackupServer.deleteFileResponse> responseObserver) {
+		try{
+			server.deleteFile(request.getFileName());
+
+			MainBackupServer.deleteFileResponse response = MainBackupServer.deleteFileResponse.newBuilder().build();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+	@Override
+	public void deleteUser(MainBackupServer.deleteUserRequest request, StreamObserver<MainBackupServer.deleteUserResponse> responseObserver){
+		try{
+			server.deleteUser(request.getUserName());
+
+			MainBackupServer.deleteUserResponse response = MainBackupServer.deleteUserResponse.newBuilder().build();
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();
 		}

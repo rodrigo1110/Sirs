@@ -45,15 +45,7 @@ message writeResponse {
 }
 
 
-message writeFileRequest {
-	string username = 1;
-	string fileId = 2;
-	bytes fileContent = 3;
-	int32 sequence = 4;
-}
 
-message writeFileResponse {
-}
 
 
 //--------------------- Reads for testing and later use -------------------
@@ -78,6 +70,61 @@ message readFileResponse{
 	int32 sequence = 2;
 }
 
+//---------------------------
+message writeUserRequest {
+	string username = 1;
+	string hashPassword = 2;
+	bytes salt = 3;
+}
+
+message writeUserResponse {
+}
+
+message writePermissionRequest {
+	string fileName = 1;
+	string userName = 2;
+}
+
+message writePermissionResponse {
+}
+
+message removePermissionRequest {
+	string fileName = 1;
+	string userName = 2;
+}
+
+message removePermissionResponse {
+}
+
+message writeFileRequest {
+	string fileName = 1;
+	bytes fileContent = 2;
+	string fileOwner = 3;
+}
+
+message writeFileResponse {
+}
+
+message updateCookieRequest {
+	string userName = 1;
+	string cookie = 2;
+}
+
+message updateCookieResponse {
+}
+
+message deleteFileRequest {
+	string fileName = 1;
+}
+
+message deleteFileResponse {
+}
+message deleteUserRequest {
+	string userName = 1;
+}
+
+message deleteUserResponse {
+}
 
 service MainBackupServerService {
 	rpc greeting(HelloRequest) returns (HelloResponse);
@@ -87,4 +134,10 @@ service MainBackupServerService {
 	rpc writeFile(writeFileRequest) returns (writeFileResponse);
 	rpc read(readRequest) returns (readResponse);
 	rpc readFile(readFileRequest) returns (readFileResponse);
+	rpc writeUser(writeUserRequest) returns (writeUserResponse);
+	rpc writePermission(writePermissionRequest) returns (writePermissionResponse);
+	rpc removePermission(removePermissionRequest) returns (removePermissionResponse);
+	rpc updateCookie(updateCookieRequest) returns (updateCookieResponse);
+	rpc deleteFile(deleteFileRequest) returns (deleteFileResponse);
+	rpc deleteUser(deleteUserRequest) returns (deleteUserResponse);
 }

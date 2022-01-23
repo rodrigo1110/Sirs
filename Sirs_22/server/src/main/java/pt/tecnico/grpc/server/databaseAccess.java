@@ -4,10 +4,16 @@ import java.sql.*;
 
 public class databaseAccess {
 
-    private static String dbhost = "jdbc:mysql://localhost:3306/sirs";
+    private String dbhost = "";
 	private static String username = "root";
 	private static String password = "root";
+    private String databaseName = "root";
     private static Connection connection; 
+
+    public databaseAccess(String databaseName){
+		this.databaseName = databaseName;
+        this.dbhost = "jdbc:mysql://localhost:3306/" + databaseName;
+	}
 
     public Connection connect(){
 
