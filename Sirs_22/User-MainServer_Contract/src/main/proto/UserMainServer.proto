@@ -36,7 +36,7 @@ message loginRequest{
 }
 
 message loginResponse{
-	string cookie = 2;
+	string cookie = 2; // mudar para tipo bytes
 }
 
 message logoutRequest{

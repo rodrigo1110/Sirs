@@ -79,7 +79,7 @@ public class User {
 							System.out.printf(" - exit\n");
 							break;
 						case "exit":
-							return;
+							System.exit(0);
 						default: 
 							System.out.printf("That operation is unavailable.%n");
 							break;
@@ -130,7 +130,7 @@ public class User {
 							System.out.printf(" - exit\n");
 							break;
 						case "exit":
-							return;
+							System.exit(0);
 						default: 
 							System.out.printf("Message not found%n");
 							break;

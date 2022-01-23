@@ -17,6 +17,8 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	
 	private server listeningServer = new server();
 	private mainServer server = new mainServer(listeningServer.getClientActive(),listeningServer.getChannel(), listeningServer.getStub());
+	
+
 
 
 	@Override

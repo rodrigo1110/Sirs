@@ -18,6 +18,10 @@ import java.util.List;
 import java.util.Random;
 
 import javax.crypto.Cipher;
+import java.nio.file.Paths;
+import java.nio.file.*;
+import java.security.*;
+import java.security.spec.*;
 
 import java.security.Key;
 import java.security.MessageDigest;
@@ -42,6 +46,9 @@ public class mainServer {
     Connection connection = database.connect();
     private String userName;
     private String password;
+    private Key privateKey;
+    private Key publicKey;
+    private boolean hasKeys = false;
 
 
     public mainServer(Boolean flag, ManagedChannel Channel, MainBackupServerServiceGrpc.MainBackupServerServiceBlockingStub Stub){
@@ -50,6 +57,7 @@ public class mainServer {
             stub = Stub;
             clientActive = true;
         }
+        
     }
     
     public String greet(String name){
@@ -59,6 +67,28 @@ public class mainServer {
         }
         return "Hello my dear " + name + "!";
     }
+
+
+    public static Key getPublicKey(String filename) throws Exception {
+    
+        byte[] keyBytes = Files.readAllBytes(Paths.get(filename));
+    
+        X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
+        KeyFactory kf = KeyFactory.getInstance("RSA");
+        return kf.generatePublic(spec);
+    }
+    
+    
+    public static Key getPrivateKey(String filename) throws Exception {
+    
+        byte[] keyBytes = Files.readAllBytes(Paths.get(filename));
+    
+        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
+        KeyFactory kf = KeyFactory.getInstance("RSA");
+        return kf.generatePrivate(spec);
+    }
+
+
     
     public String createFileChecksum(byte[] file) throws FileNotFoundException, IOException, NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -104,20 +134,45 @@ public class mainServer {
       return salt;
     }
 
-    //encrypt with public key --> server and user
-    /*private static byte[] encrypt(Key pubkey, byte[] text) {
+
+
+
+
+    //encrypt with public and private key --> server and user
+    private byte[] encrypt(Key key, byte[] text) {
         try {
             Cipher rsa;
             rsa = Cipher.getInstance("RSA");
-            rsa.init(Cipher.ENCRYPT_MODE, pubkey);
+            rsa.init(Cipher.ENCRYPT_MODE, key);
             return rsa.doFinal(text); //text.getBytes()
+
         } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
-    }*/
+    }
 
-    //encrypt with private key --> server and user
+    //derypt with public and private key --> server and user
+    private String decrypt(Key key, byte[] buffer) {
+        try {
+            Cipher rsa;
+            rsa = Cipher.getInstance("RSA");
+            rsa.init(Cipher.DECRYPT_MODE, key);
+            byte[] value = rsa.doFinal(buffer);
+            return new String(value);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+
+
+
+
+
+    
     //encrypt with symmetric key --> user
 
     //decrypt with public key --> server and user
@@ -126,6 +181,12 @@ public class mainServer {
 
     
     public void signUp(String username, String password) throws Exception{
+        if(!hasKeys){
+            privateKey = getPrivateKey("src/main/java/pt/tecnico/grpc/server/rsaPrivateKey");
+            publicKey = getPublicKey("rsaPublicKey");
+            hasKeys = true;
+        }
+
         if(checkInput(username, password)){
 
             String query = "SELECT username FROM users WHERE username=?";
@@ -184,6 +245,12 @@ public class mainServer {
         String dbPassword = "";
 
         System.out.println("User " + username + " has attempted to login with password " + password + ".");
+
+        if(!hasKeys){
+            privateKey = getPrivateKey("src/main/java/pt/tecnico/grpc/server/rsaPrivateKey");
+            publicKey = getPublicKey("rsaPublicKey");
+            hasKeys = true;
+        }
 
         if(checkInput(username, password)){
 
@@ -247,6 +314,9 @@ public class mainServer {
                                                         
                             //creates cookie and adds it to database
                             String cookie = createCookie(username, password);
+                            byte[] encrypted = encrypt(privateKey, cookie.getBytes());
+                            System.out.println("Bolacha encriptada: " + convertToHex(encrypted));
+                            System.out.println("Bolacha desencriptada: " + decrypt(publicKey, encrypted));
 
                             //criar/atualizar cookie na base de dados
                             query = "UPDATE users SET cookie=? WHERE username=?";
