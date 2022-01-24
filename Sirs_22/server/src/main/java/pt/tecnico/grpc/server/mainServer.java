@@ -18,9 +18,14 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.sql.Timestamp;
+import java.util.Base64;
 
 import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.SSLException;
+import javax.sound.sampled.AudioFormat.Encoding;
 
 import java.nio.file.Paths;
 import java.nio.file.*;
@@ -37,6 +42,7 @@ import java.io.*;
 
 import java.sql.*;
 
+import com.google.common.primitives.Bytes;
 import com.google.protobuf.ByteString;
 
 
@@ -136,6 +142,23 @@ public class mainServer {
     
       random.nextBytes(salt);
       return salt;
+    }
+
+
+    private boolean verifyMessageHash(byte[] Message,String hashMessage ){
+        String message = new String(Message);
+        if((hashString(message, new byte[0]).compareTo(hashMessage)) == 0)
+            return true;
+        return false;   
+    }
+
+    private boolean verifyTimeStamp(long sentTimeStamp){
+        Timestamp timestampNow = new Timestamp(System.currentTimeMillis());
+        long timeStampLong = timestampNow.getTime() / 1000;
+        System.out.println("TimeStamp time: " + timeStampLong);
+        if((timeStampLong - sentTimeStamp) < 20)
+            return true;
+        return false;
     }
 
 
@@ -318,12 +341,48 @@ public class mainServer {
     //decrypt with symmetric key --> user
 
     
-    public void signUp(String username, String password) throws Exception{
+    public void signUp(String username, ByteString password_bytes, ByteString publickeyClient, ByteString timeStamp, ByteString hashMessage) throws Exception{
+    
         if(!hasKeys){
             privateKey = getPrivateKey("src/main/java/pt/tecnico/grpc/server/rsaPrivateKey");
             publicKey = getPublicKey("rsaPublicKey");
             hasKeys = true;
         }
+        /*do servidor */
+        String publicKey = decrypt(privateKey, publickeyClient.toByteArray());
+        byte[] publicKeyBytes = Base64.getDecoder().decode(publicKey);
+        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(publicKeyBytes);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        Key clientPubKey = keyFactory.generatePublic(keySpec);
+        
+       
+         //esta public key tem de ser a do user --->i ir busca a bd
+        String timeStampDecrypted= decrypt(clientPubKey, timeStamp.toByteArray());
+        long sentTimeStamp = Long.parseLong(timeStampDecrypted);
+        if(!verifyTimeStamp(sentTimeStamp)){
+            throw new TimestampException();
+            return;
+        }
+
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(username.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(password_bytes.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(publickeyClient.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(timeStamp.toByteArray());
+
+        //esta public key tem de ser a do user --->i ir busca a bd
+        String hashMessageString = decrypt(clientPubKey, hashMessage.toByteArray());
+        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            throw new MessageIntegrityException();
+            return;
+        }
+
+        
+        String password = decrypt(privateKey, password_bytes.toByteArray());
 
         if(checkInput(username, password)){
 
@@ -380,7 +439,7 @@ public class mainServer {
         return cookie;
     }
 
-    public String login(String username, String password) throws Exception{
+    public UserMainServer.loginResponse login(String username, ByteString password_bytes, ByteString timeStamp, ByteString hashMessage) throws Exception{
         
         byte[] salt = new byte[0];
         String dbPassword = "";
@@ -392,6 +451,8 @@ public class mainServer {
             publicKey = getPublicKey("rsaPublicKey");
             hasKeys = true;
         }
+
+        String password = decrypt(privateKey, password_bytes.toByteArray());
 
         if(checkInput(username, password)){
 
@@ -475,7 +536,13 @@ public class mainServer {
 
                             updateCookieBackUp(username, hashString(cookie, new byte[0]));
 
-                            return cookie;
+                            byte[] encryptedCookie = encrypt(publicKey, cookie.getBytes()); //este public key vai ter de ser a public key do user -> server vai busca-la a bd
+                            String hashCookie = hashString(cookie, new byte[0]);
+                            byte[] encryptedHash = encrypt(publicKey, hashCookie.getBytes());
+
+                            UserMainServer.loginResponse response= UserMainServer.loginResponse.newBuilder()
+			                .setCookie(ByteString.copyFrom(encryptedCookie)).setHashCookie(ByteString.copyFrom(encryptedHash)).build();
+                            return response;
                         }
         
                         } catch(SQLException e){
@@ -488,7 +555,7 @@ public class mainServer {
             } catch(SQLException e){
                 System.out.println(e.toString());
             }
-            return "Cookie?";
+            return UserMainServer.loginResponse.newBuilder().build();
         }
         else
             throw new RansomwareAttackException();
@@ -598,8 +665,11 @@ public class mainServer {
         return userName.length() <= 45 && userName.length() > 0 && password.length() <= 45 && password.length() > 0;
     }
 
-    public void logout(String cookie) throws Exception{
 
+    public void logout(ByteString cookie_bytes, ByteString timeStamp, ByteString hashMessage) throws Exception{
+        //desencriptar a cookie
+        String cookie = decrypt(privateKey, cookie_bytes.toByteArray());
+        
         String dbUserName = correspondentUser(cookie);
 
         String query = "UPDATE users SET cookie=? WHERE username=?";
@@ -619,7 +689,11 @@ public class mainServer {
     }
 
 
-    public void upload(String fileID, String cookie, ByteString file) throws Exception{
+    public void upload(String fileID, ByteString cookie_bytes, ByteString file, ByteString symmetricKey, 
+                        ByteString inicializationVector, ByteString timeStamp, ByteString hashMessage) throws Exception{
+        
+        String cookie = decrypt(privateKey, cookie_bytes.toByteArray());
+
         try {
             //for testing, creates file with same content to check byte conversion to string
             File myObj = new File(fileID);
@@ -737,9 +811,11 @@ public class mainServer {
         return dbUserName;
     }
 
-    public ByteString download(String fileID, String cookie) throws Exception{
+    public UserMainServer.downloadResponse download(String fileID, ByteString cookie_bytes, ByteString timeStamp, ByteString hashMessage ) throws Exception{
 
         //encontrar username correspondente a cookie recebida
+
+        String cookie = decrypt(privateKey, cookie_bytes.toByteArray());
 
         String dbUserName = correspondentUser(cookie);
         /********************************** */
@@ -760,7 +836,10 @@ public class mainServer {
                     ByteString bytestring = ByteString.copyFrom(rs.getBytes(1));
                     System.out.println("File content = " + bytestring.toStringUtf8());
     
-                    return bytestring;
+                    UserMainServer.downloadResponse response = UserMainServer.downloadResponse.newBuilder()
+				        .setFileContent(bytestring).build();
+                    
+                    return response;
                 }
                 else{
                     throw new FileUnknownException(fileID);
@@ -773,11 +852,12 @@ public class mainServer {
         else{
             throw new NotSharedWithUserException();
         }
-        return ByteString.copyFromUtf8("ERRO");
+        return UserMainServer.downloadResponse.newBuilder().build();
     }
 
 
-    public void share(String fileID, String cookie, List<String> user) throws Exception{ //se um dos nomes inseridos pelo user estiver errado, mais nenhum e adicionado, por causa da excecao.
+    public UserMainServer.shareResponse share(String fileID, ByteString cookie_bytes, List<String> user, ByteString timeStamp, ByteString hashMessage) throws Exception{ //se um dos nomes inseridos pelo user estiver errado, mais nenhum e adicionado, por causa da excecao.
+    
         //check if the file exists - done
         //check if "I" am the owner of the file - done, need to update after cookie done
         //check if user already had permission - done
@@ -786,6 +866,8 @@ public class mainServer {
         //cliente pede ao servidor chave simetrica (que esta na bd encriptada com a publica do cliente) e a chave publica da pessoa com quem quer partilhar
         //cliente encripta a chave simetrica com a chave publica (enviada pelo servidor) da pessoa com quem quer partilhar o ficheiro
         //cliente envia esta chave simetrica encriptada com a publica da outra pessoa para o servidor colocar isto na coluna (chave) da tabela permissoes na linha da pessoa BOB
+        String cookie = decrypt(privateKey, cookie_bytes.toByteArray());
+        
         String dbUserName = correspondentUser(cookie);
 
 
@@ -833,14 +915,24 @@ public class mainServer {
             }
 
         }
+        return UserMainServer.shareResponse.newBuilder().build();
 
     }
 
 
-    public void unshare(String fileID, String cookie, List<String> user) throws Exception{ //se um dos nomes inseridos pelo user estiver errado, mais nenhum e adicionado, por causa da excecao.
+    public UserMainServer.shareKeyResponse shareKey(List<ByteString> symmetricKeyList, List<ByteString> initializationVectorList,
+    List<String> userNameList, String fileName, ByteString timeStamp, ByteString hashMessage) throws Exception{
+        return UserMainServer.shareKeyResponse.newBuilder().build();
+    }
+
+
+    public void unshare(String fileID, ByteString cookie_bytes, List<String> user, ByteString timeStamp, ByteString hashMessage) throws Exception{ //se um dos nomes inseridos pelo user estiver errado, mais nenhum e adicionado, por causa da excecao.
         //check if the file exists - done
         //check if "I" am the owner of the file - done, need to update after cookie done
         //check if user already had permission - done
+
+        String cookie = decrypt(privateKey, cookie_bytes.toByteArray());
+
 
         String dbUserName = correspondentUser(cookie);
 
@@ -888,8 +980,9 @@ public class mainServer {
     }
 
 
-    public void deleteUser(String userName, String password) throws Exception{
+    public void deleteUser(String userName, ByteString password_bytes, ByteString timeStamp, ByteString hashMessage) throws Exception{
 
+        String password = decrypt(privateKey, password_bytes.toByteArray());
         byte[] salt = new byte[0];
         String query = "SELECT password FROM users WHERE username=?";
         String dbPassword = "";
@@ -1008,9 +1101,10 @@ public class mainServer {
     }
 
 
-    public void deleteFile(String fileID, String cookie) throws Exception{
+    public void deleteFile(String fileID, ByteString cookie_bytes, ByteString timeStamp, ByteString hashMessage) throws Exception{
         //enviar excecao para o user
-    
+        String cookie = decrypt(privateKey, cookie_bytes.toByteArray());
+        
         String dbUserName = correspondentUser(cookie);
 
         if(checkFileOwner(fileID, dbUserName)){
@@ -1049,3 +1143,21 @@ public class mainServer {
         }
     }
 }
+
+//para fazer servidor:
+//funco que verifica os timestamps (<20 segundos?)
+//funcao que verifica integridade da mensagem -> verifica hash message
+//formatar (encriptar) respostas do servidor -> share e download
+//criar coluna na tabela users para a public key do user (encriptada com a chave publica do servidor)
+//criar 2 colunas na tabela das permissoes: chave simetrica (encriptada com a chave publica do cliente) e initialization vector (encriptado com a chave publica do cliente correspondente)
+//onde esta chave publica do servidor ---> fazer query para ir buscar chave do cliente (quando esta estiver na bd)
+//verifySystemState (para ver ataques) que verifica coluna hash em todas as tabelas e pode originar troca de servidores (promote)
+//extra: comando "show files shared with me"
+
+//para fazer cliente:
+//Eduardo -> chave publica e chave privada + criar pasta Public Key + criar pasta Private Key (password protected cada)
+//colocar no codigo a parte da chave simetrica
+//formatar (encriptar) pedidos do cliente --> gerar timestamps, hashes
+//receber respostas corretamente do servidor
+
+//extra: verificar password (tamanho, carateres especiais...)

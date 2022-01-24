@@ -37,7 +37,8 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override 
 	public void signUp(UserMainServer.signUpRequest request, StreamObserver<UserMainServer.signUpResponse> responseObserver){
 		try{
-			server.signUp(request.getUserName(),request.getPassword());
+			server.signUp(request.getUserName(), request.getPassword(), request.getPublicKeyClient(),
+			request.getTimeStamp(), request.getHashMessage());
 
 			UserMainServer.signUpResponse response = UserMainServer.signUpResponse.newBuilder().build();
 			responseObserver.onNext(response);
@@ -55,8 +56,9 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override 
 	public void login(UserMainServer.loginRequest request, StreamObserver<UserMainServer.loginResponse> responseObserver){
 		try{
-			UserMainServer.loginResponse response = UserMainServer.loginResponse.newBuilder()
-			.setCookie(server.login(request.getUserName(),request.getPassword())).build();
+			UserMainServer.loginResponse response = server.login(request.getUserName(), request.getPassword(), request.getTimeStamp(),
+			request.getHashMessage());
+
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();	
 		}
@@ -72,7 +74,7 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override
 	public void logout(UserMainServer.logoutRequest request, StreamObserver<UserMainServer.logoutResponse> responseObserver){
 		try{
-			server.logout(request.getCookie());
+			server.logout(request.getCookie(), request.getTimeStamp(), request.getHashMessage());
 			
 			UserMainServer.logoutResponse response = UserMainServer.logoutResponse.newBuilder().build();
 			responseObserver.onNext(response);
@@ -90,7 +92,8 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override 
 	public void upload(UserMainServer.uploadRequest request, StreamObserver<UserMainServer.uploadResponse> responseObserver){
 		try{
-			server.upload(request.getFileId(),request.getCookie(),request.getFileContent());
+			server.upload(request.getFileId(),request.getCookie(),request.getFileContent(), request.getSymmetricKey(), 
+			request.getInitializationVector(), request.getTimeStamp(),request.getHashMessage());
 
 			UserMainServer.uploadResponse response = UserMainServer.uploadResponse.newBuilder().build();
 			responseObserver.onNext(response);
@@ -108,8 +111,9 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override 
 	public void download(UserMainServer.downloadRequest request, StreamObserver<UserMainServer.downloadResponse> responseObserver){
 		try{
-			UserMainServer.downloadResponse response = UserMainServer.downloadResponse.newBuilder()
-				.setFileContent(server.download(request.getFileId(),request.getCookie())).build();
+			UserMainServer.downloadResponse response = server.download(request.getFileId(),
+			request.getCookie(),request.getTimeStamp(),request.getHashMessage());
+			
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();	
 		}
@@ -125,9 +129,26 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override 
 	public void share(UserMainServer.shareRequest request, StreamObserver<UserMainServer.shareResponse> responseObserver){
 		try{
-			server.share(request.getFileId(),request.getCookie(),request.getUserNameList());
+			UserMainServer.shareResponse response = server.share(request.getFileId(),request.getCookie(),request.getUserNameList(),
+				request.getTimeStamp(),request.getHashMessage());
+			responseObserver.onNext(response); 
+			responseObserver.onCompleted();	
+		}
+		catch (RansomwareAttackException e){
+			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
 
-			UserMainServer.shareResponse response = UserMainServer.shareResponse.newBuilder().build();
+
+	@Override 
+	public void shareKey(UserMainServer.shareKeyRequest request, StreamObserver<UserMainServer.shareKeyResponse> responseObserver){
+		try{
+			UserMainServer.shareKeyResponse response = server.shareKey(request.getSymmetricKeyList(), request.getInitializationVectorList(),
+			request.getUserNamesList(), request.getFileId(), request.getTimeStamp(), request.getHashMessage());
+
 			responseObserver.onNext(response); 
 			responseObserver.onCompleted();	
 		}
@@ -143,7 +164,7 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override 
 	public void unshare(UserMainServer.unshareRequest request, StreamObserver<UserMainServer.unshareResponse> responseObserver){
 		try{
-			server.unshare(request.getFileId(),request.getCookie(),request.getUserNameList());
+			server.unshare(request.getFileId(),request.getCookie(),request.getUserNameList(),request.getTimeStamp(),request.getHashMessage());
 
 			UserMainServer.unshareResponse response = UserMainServer.unshareResponse.newBuilder().build();
 			responseObserver.onNext(response); 
@@ -161,7 +182,7 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override 
 	public void deleteUser(UserMainServer.deleteUserRequest request, StreamObserver<UserMainServer.deleteUserResponse> responseObserver){
 		try{
-			server.deleteUser(request.getUserName(),request.getPassword());
+			server.deleteUser(request.getUserName(),request.getPassword(),request.getTimeStamp(),request.getHashMessage());
 
 			UserMainServer.deleteUserResponse response = UserMainServer.deleteUserResponse.newBuilder().build();
 			responseObserver.onNext(response);
@@ -178,7 +199,7 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override 
 	public void deleteFile(UserMainServer.deleteFileRequest request, StreamObserver<UserMainServer.deleteFileResponse> responseObserver){
 		try{
-			server.deleteFile(request.getFileId(),request.getCookie());
+			server.deleteFile(request.getFileId(),request.getCookie(),request.getTimeStamp(),request.getHashMessage());
 
 			UserMainServer.deleteFileResponse response = UserMainServer.deleteFileResponse.newBuilder().build();
 			responseObserver.onNext(response);
