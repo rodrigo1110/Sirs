@@ -15,11 +15,22 @@ import java.util.Scanner;
 import java.io.*;
 import java.nio.file.Files;
 
+import java.security.NoSuchAlgorithmException;
+
 import java.util.Arrays;
 
 import javax.net.ssl.SSLException;
 
 import com.google.protobuf.ByteString;
+
+import java.security.*;
+import java.security.spec.*;
+import java.security.spec.RSAKeyGenParameterSpec;
+import java.io.DataOutputStream;
+
+import java.io.FileOutputStream;
+import java.io.IOException;
+
 
 
 public class UserImpl {
@@ -28,6 +39,8 @@ public class UserImpl {
     private String cookie = "";
     ManagedChannel channel;
     UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub;
+    private static PrivateKey privateKey;
+    private static PublicKey publicKey;
 
 
     public UserImpl(String host, int port){
@@ -38,6 +51,76 @@ public class UserImpl {
     public String getCookie(){
         return cookie;
     }
+
+    public static Key getPublicKey(String filename) throws Exception {
+        
+        byte[] keyBytes = Files.readAllBytes(Paths.get(filename));
+
+        X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
+        KeyFactory kf = KeyFactory.getInstance("RSA");
+        return kf.generatePublic(spec);
+    }
+
+
+    public static Key getPrivateKey(String filename) throws Exception {
+
+        byte[] keyBytes = Files.readAllBytes(Paths.get(filename));
+
+        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
+        KeyFactory kf = KeyFactory.getInstance("RSA");
+        return kf.generatePrivate(spec);
+    }
+
+
+    public void getKeys() throws NoSuchAlgorithmException, Exception{
+        
+        //Generate key pair
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(1024);
+        KeyPair pair = keyGen.generateKeyPair();
+        privateKey = pair.getPrivate();
+        publicKey = pair.getPublic();
+        //prints para retirar mais tarde
+        //System.out.println("Chave Publica: " + publicKey);
+        //System.out.println("Chave privada: " + privateKey);
+
+        DataOutputStream dos = null; 
+            try {
+                dos = new DataOutputStream(new FileOutputStream("rsaPublicKey"));
+                dos.write(publicKey.getEncoded());
+                dos.flush();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            } finally {
+                if (dos != null) {
+                    try {
+                        dos.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            
+            try { 
+                dos = new DataOutputStream(new FileOutputStream("rsaPrivateKey"));
+                dos.write(privateKey.getEncoded());
+                dos.flush();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            } finally {
+                if (dos != null)
+                    try {
+                        dos.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+            }
+            //prints para retirar mais tarde
+            System.out.println("Public key gerada: " + getPublicKey("rsaPublicKey"));
+            System.out.println("Private key gerada: " + getPrivateKey("rsaPrivateKey"));
+    }
+
+
     public void signup(String target){
 		
         System.out.println("------------------------------");
@@ -53,7 +136,17 @@ public class UserImpl {
         System.out.println("You entered the password " + password);
         System.out.println("------------------------------");
 
-
+        //---------------------------------------------------------------------------------------
+        try{
+            getKeys();
+        }catch(NoSuchAlgorithmException e) {
+            System.out.println("No algorithm");
+        }catch(Exception e){
+            throw new RuntimeException(e);
+        }
+        
+        
+        //---------------------------------------------------------------------------------------
         //codigo hash da password + encriptar com privada do cliente
         //criar chave publica e provada do novo user. Privada fica (aqui) no cliente. Publica vai para onde esta a publica do servidor
 
