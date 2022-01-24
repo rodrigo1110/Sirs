@@ -44,6 +44,8 @@ public class UserImpl {
     UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub;
     private static Key privateKey;
     private static Key publicKey;
+    private static Key serverPublicKey;
+    private static boolean hasServerPublicKey = false;
 
 
     public UserImpl(String host, int port){
@@ -75,14 +77,13 @@ public class UserImpl {
     }
 
 
-    public void getKeys(String username) throws NoSuchAlgorithmException, Exception{
-        
+    public void createKeys(String username) throws NoSuchAlgorithmException, Exception{
         //Generate key pair
         KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
         keyGen.initialize(1024);
         KeyPair pair = keyGen.generateKeyPair();
-        privateKey = pair.getPrivate();
-        publicKey = pair.getPublic();
+        Key privateKey1 = pair.getPrivate();
+        Key publicKey1 = pair.getPublic();
         //prints para retirar mais tarde
         //System.out.println("Chave Publica: " + publicKey);
         //System.out.println("Chave privada: " + privateKey);
@@ -92,7 +93,7 @@ public class UserImpl {
                 //se der erro, temos de usar funcao que se ja existir ficheiro com este nome, nao cria um novo (a verificacao do user name so e feita depis na bd do lado do server)
                 String path = "publicKey/" + username + "-PublicKey";
                 dos = new DataOutputStream(new FileOutputStream(path));
-                dos.write(publicKey.getEncoded());
+                dos.write(publicKey1.getEncoded());
                 dos.flush();
             } catch (Exception e) {
                 System.out.println("File already exists");
@@ -111,7 +112,7 @@ public class UserImpl {
                 //se der erro, temos de usar funcao que se ja existir ficheiro com este nome, nao cria um novo (a verificacao do user name so e feita depis na bd do lado do server)
                 String path = "privateKey/" + username + "-PrivateKey";
                 dos = new DataOutputStream(new FileOutputStream(path));
-                dos.write(privateKey.getEncoded());
+                dos.write(privateKey1.getEncoded());
                 dos.flush();
             } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -225,6 +226,13 @@ public class UserImpl {
         return hashtext;
     }
 
+    private boolean verifyMessageHash(byte[] Message,String hashMessage) throws Exception{
+        String message = new String(Message);
+        if((hashMessage(message).compareTo(hashMessage)) == 0)
+            return true;
+        return false;   
+    }
+
     private String convertToHex(byte[] messageDigest) {
         BigInteger value = new BigInteger(1, messageDigest);
         String hexText = value.toString(16);
@@ -261,7 +269,7 @@ public class UserImpl {
 
         //---------------------------------------------------------------------------------------
         try{
-            getKeys(userName);
+            createKeys(userName);
             
         }catch(NoSuchAlgorithmException e) {
             System.out.println("No algorithm");
@@ -270,7 +278,16 @@ public class UserImpl {
             throw new RuntimeException(e);
         }
         try{
-            Key serverPublicKey = getPublicKey("../server/rsaPublicKey");
+            
+            if(!hasServerPublicKey){
+                serverPublicKey = getPublicKey("../server/rsaPublicKey");
+                hasServerPublicKey = true;
+            }
+
+            String targetPublic = "publicKey/" + userName + "-PublicKey";
+            String targetPrivate = "privateKey/" + userName + "-PrivateKey";
+            publicKey = getPublicKey(targetPublic);
+            privateKey = getPrivateKey(targetPrivate);
             
             ByteString encryptedPassword = ByteString.copyFrom(encrypt(serverPublicKey, password.getBytes()));
             ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
@@ -329,25 +346,57 @@ public class UserImpl {
         System.out.println("You entered the password " + password);
         System.out.println("-------- ----------------------");
 
+        try{
 
-        //codigo hash da password + encriptar com privada do cliente
+            if(!hasServerPublicKey){
+                serverPublicKey = getPublicKey("../server/rsaPublicKey");
+                hasServerPublicKey = true;
+            }
+            String targetPublic = "publicKey/" + userName + "-PublicKey";
+            String targetPrivate = "privateKey/" + userName + "-PrivateKey";
+            publicKey = getPublicKey(targetPublic);
+            privateKey = getPrivateKey(targetPrivate);
 
-        //(password) +servidor , (password)- cliente)+ servidor
+            ByteString encryptedPassword = ByteString.copyFrom(encrypt(serverPublicKey, password.getBytes()));
+            ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
 
-        File tls_cert = new File("../server/tlscert/server.crt");
-        try {
+            ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+            messageBytes.write(userName.getBytes());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(encryptedPassword.toByteArray());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(encryptedTimeStamp.toByteArray());
+
+            String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
+            ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+
+            File tls_cert = new File("../server/tlscert/server.crt");
             channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
         
             stub = UserMainServerServiceGrpc.newBlockingStub(channel);
-            UserMainServer.loginRequest request = UserMainServer.loginRequest.newBuilder().setUserName(userName).setPassword(password).build();
+            UserMainServer.loginRequest request = UserMainServer.loginRequest.newBuilder().
+            setUserName(userName).setPassword(encryptedPassword)
+            .setTimeStamp(encryptedTimeStamp).setHashMessage(encryptedHashMessage).build();
     
             UserMainServer.loginResponse response = stub.login(request);
+
+            byte[] cookie = response.getCookie().toByteArray();
+            String cookieDecrypted = decrypt(privateKey, cookie);
+            byte[] hashCookie = response.getHashCookie().toByteArray();
+            String hashCookieDecrypted = decrypt(serverPublicKey, hashCookie);
+
+            if(!verifyMessageHash(cookieDecrypted.getBytes(), hashCookieDecrypted)){
+                System.out.println("Response message corrupted.");
+                return;
+            }
     
             System.out.println(response);
-            this.cookie = response.getCookie();
+            this.cookie = cookieDecrypted;
 
-        } catch (SSLException e) {
-            e.printStackTrace();
+            System.out.println("COOKIE: " + cookieDecrypted);
+
+        } catch (Exception e) {
+            System.out.println(e);
         }
 
         System.out.println("Successful Login! Welcome back " + userName + ".");

@@ -223,7 +223,7 @@ public class mainServer {
     }
 
 
-    public byte[] decryptKey(byte[] inputArray, Key key) throws Exception {
+    public Key decryptKey(byte[] inputArray, Key key) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");
         cipher.init(Cipher.DECRYPT_MODE, key);
 
@@ -246,7 +246,11 @@ public class mainServer {
             System.arraycopy(iteration, 0, resultBytes, resultBytes.length-iteration.length, iteration.length);
         }
 
-        return resultBytes;
+        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(resultBytes);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        Key keyResult = keyFactory.generatePublic(keySpec);
+        
+        return keyResult;
     }
 
 
@@ -405,11 +409,7 @@ public class mainServer {
         }
 
 
-        byte[] publicKeyBytes = decryptKey(publickeyClient.toByteArray(), privateKey);
-        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(publicKeyBytes);
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        Key clientPubKey = keyFactory.generatePublic(keySpec);
-
+        Key clientPubKey = decryptKey(publickeyClient.toByteArray(), privateKey);
 
         if(!verifyTimeStamp(timeStamp, clientPubKey))
             throw new TimestampException();
@@ -455,7 +455,7 @@ public class mainServer {
                     + " password, "
                     + " salt, "
                     + " publickey, "
-                    + " hash ) VALUES ("
+                    + " hash ) VALUES (" //wrong hash. save hash of line
                     + "?, ?, ?, ?, ?)";
                     byte[] salt = createSalt();
 
@@ -506,8 +506,32 @@ public class mainServer {
             publicKey = getPublicKey("rsaPublicKey");
             hasKeys = true;
         }
+
+        //Key encryptedUserPublicKey = null;
+        Key userPublicKey = null;
+
+        String query = "SELECT publickey FROM users WHERE username=?";
+        try{
+            PreparedStatement st = connection.prepareStatement(query);
+            st.setString(1, username);
+        
+            ResultSet rs = st.executeQuery();        
+
+            if(rs.next()) {                       
+                byte[] userPublicKeyByteArray = rs.getBytes(1);   
+                System.out.println("User public key: " + userPublicKeyByteArray);
+                /*X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
+                KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+                userPublicKey = keyFactory.generatePublic(keySpec);*/
+               userPublicKey = decryptKey(userPublicKeyByteArray, privateKey);
+            }
+        }
+        catch(Exception e){
+            System.out.println(e);
+        }    
+
         //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
-        if(!verifyTimeStamp(timeStamp,publicKey))
+        if(!verifyTimeStamp(timeStamp,userPublicKey))
             throw new TimestampException();
 
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
@@ -517,7 +541,7 @@ public class mainServer {
         messageBytes.write(":".getBytes());
         messageBytes.write(timeStamp.toByteArray());
         //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
-        String hashMessageString = decrypt(publicKey, hashMessage.toByteArray());
+        String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
         if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
             throw new MessageIntegrityException();
         }
@@ -527,7 +551,7 @@ public class mainServer {
         if(checkInput(username, password)){
 
             //check if user is registered
-            String query = "SELECT username FROM users WHERE username=?";
+            query = "SELECT username FROM users WHERE username=?";
             try{
                 PreparedStatement st = connection.prepareStatement(query);
                 st.setString(1, username);
@@ -606,9 +630,9 @@ public class mainServer {
 
                             updateCookieBackUp(username, hashString(cookie, new byte[0]));
 
-                            byte[] encryptedCookie = encrypt(publicKey, cookie.getBytes()); //este public key vai ter de ser a public key do user -> server vai busca-la a bd
+                            byte[] encryptedCookie = encrypt(userPublicKey, cookie.getBytes()); //este public key vai ter de ser a public key do user -> server vai busca-la a bd
                             String hashCookie = hashString(cookie, new byte[0]);
-                            byte[] encryptedHash = encrypt(publicKey, hashCookie.getBytes());
+                            byte[] encryptedHash = encrypt(privateKey, hashCookie.getBytes());
 
                             UserMainServer.loginResponse response= UserMainServer.loginResponse.newBuilder()
 			                .setCookie(ByteString.copyFrom(encryptedCookie)).setHashCookie(ByteString.copyFrom(encryptedHash)).build();
