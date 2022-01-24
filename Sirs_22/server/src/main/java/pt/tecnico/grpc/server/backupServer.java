@@ -14,7 +14,7 @@ import com.google.protobuf.ByteString;
 
 public class backupServer {
 
-    private databaseAccess database = new databaseAccess("sirsbackup");
+    private databaseAccess database = new databaseAccess("rdabackup");
     Connection connection = database.connect();
     
     //--------------------------mainServer-backupServer implementation--------------------------

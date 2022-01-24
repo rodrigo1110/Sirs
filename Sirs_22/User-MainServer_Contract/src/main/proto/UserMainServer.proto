@@ -100,12 +100,13 @@ message shareResponse{
 }
 
 message shareKeyRequest{
-	repeated bytes symmetricKey = 1;
-	repeated bytes initializationVector = 2;
-	repeated string userNames = 3; 
-	string fileId = 4;
-	bytes timeStamp = 5;
-	bytes hashMessage = 6;
+	bytes cookie = 1;
+	repeated bytes symmetricKey = 2;
+	repeated bytes initializationVector = 3;
+	repeated string userNames = 4; 
+	string fileId = 5;
+	bytes timeStamp = 6;
+	bytes hashMessage = 7;
 }
 
 message shareKeyResponse{

@@ -146,7 +146,7 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override 
 	public void shareKey(UserMainServer.shareKeyRequest request, StreamObserver<UserMainServer.shareKeyResponse> responseObserver){
 		try{
-			UserMainServer.shareKeyResponse response = server.shareKey(request.getSymmetricKeyList(), request.getInitializationVectorList(),
+			UserMainServer.shareKeyResponse response = server.shareKey(request.getCookie(), request.getSymmetricKeyList(), request.getInitializationVectorList(),
 			request.getUserNamesList(), request.getFileId(), request.getTimeStamp(), request.getHashMessage());
 
 			responseObserver.onNext(response); 

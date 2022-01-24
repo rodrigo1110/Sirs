@@ -40,6 +40,8 @@ public class databaseAccess {
             " password VARCHAR(80) not NULL, " + 
             " cookie VARCHAR(80), " + 
             " salt BLOB not NULL, " + 
+            " publickey BLOB not NULL, " + 
+            " hash BLOB not NULL, " + 
             " PRIMARY KEY ( username ))"; 
 
             stmt.executeUpdate(sql);
@@ -51,7 +53,8 @@ public class databaseAccess {
             sql = "CREATE TABLE files " +
             "(filename VARCHAR(45) not NULL, " +
             " filecontent LONGTEXT not NULL, " + 
-            " fileowner VARCHAR(45) not NULL, " + 
+            " fileowner VARCHAR(45) not NULL, " +
+            " hash BLOB not NULL, " + 
             " PRIMARY KEY ( filename ))"; 
 
             stmt.executeUpdate(sql);
@@ -62,7 +65,10 @@ public class databaseAccess {
             // para criar table permissions --- se isto resultar, verificar se existe, se nao, criar
             sql = "CREATE TABLE permissions " +
             "(filename VARCHAR(45) not NULL, " +
-            " username VARCHAR(45) not NULL, " + 
+            " username VARCHAR(45) not NULL, " +
+            " symmetrickey BLOB not NULL, " + 
+            " initializationvector BLOB not NULL, " + 
+            " hash BLOB not NULL, " +  
             " PRIMARY KEY ( filename, username ))"; 
 
             stmt.executeUpdate(sql);
@@ -81,6 +87,7 @@ public class databaseAccess {
 			} 
 
         } catch (SQLException e) {
+            System.out.println(e);
             if(e.getClass().toString().compareTo("class java.sql.SQLSyntaxErrorException") == 0){
                 System.out.println("Tables were not created. They already existed.");
             }

@@ -12,6 +12,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.sql.Timestamp;
 import java.io.*;
 import java.nio.file.Files;
 
@@ -19,6 +20,7 @@ import java.security.NoSuchAlgorithmException;
 
 import java.util.Arrays;
 
+import javax.crypto.Cipher;
 import javax.net.ssl.SSLException;
 
 import com.google.protobuf.ByteString;
@@ -30,6 +32,7 @@ import java.io.DataOutputStream;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 
 
 
@@ -39,8 +42,8 @@ public class UserImpl {
     private String cookie = "";
     ManagedChannel channel;
     UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub;
-    private static PrivateKey privateKey;
-    private static PublicKey publicKey;
+    private static Key privateKey;
+    private static Key publicKey;
 
 
     public UserImpl(String host, int port){
@@ -72,7 +75,7 @@ public class UserImpl {
     }
 
 
-    public void getKeys() throws NoSuchAlgorithmException, Exception{
+    public void getKeys(String username) throws NoSuchAlgorithmException, Exception{
         
         //Generate key pair
         KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
@@ -86,10 +89,13 @@ public class UserImpl {
 
         DataOutputStream dos = null; 
             try {
-                dos = new DataOutputStream(new FileOutputStream("rsaPublicKey"));
+                //se der erro, temos de usar funcao que se ja existir ficheiro com este nome, nao cria um novo (a verificacao do user name so e feita depis na bd do lado do server)
+                String path = "publicKey/" + username + "-PublicKey";
+                dos = new DataOutputStream(new FileOutputStream(path));
                 dos.write(publicKey.getEncoded());
                 dos.flush();
             } catch (Exception e) {
+                System.out.println("File already exists");
                 throw new RuntimeException(e);
             } finally {
                 if (dos != null) {
@@ -102,7 +108,9 @@ public class UserImpl {
             }
             
             try { 
-                dos = new DataOutputStream(new FileOutputStream("rsaPrivateKey"));
+                //se der erro, temos de usar funcao que se ja existir ficheiro com este nome, nao cria um novo (a verificacao do user name so e feita depis na bd do lado do server)
+                String path = "privateKey/" + username + "-PrivateKey";
+                dos = new DataOutputStream(new FileOutputStream(path));
                 dos.write(privateKey.getEncoded());
                 dos.flush();
             } catch (Exception e) {
@@ -116,10 +124,121 @@ public class UserImpl {
                     }
             }
             //prints para retirar mais tarde
-            System.out.println("Public key gerada: " + getPublicKey("rsaPublicKey"));
-            System.out.println("Private key gerada: " + getPrivateKey("rsaPrivateKey"));
+            /*String path = "publicKey/" + username + "-PublicKey";
+            String path2 = "privateKey/" + username + "-PrivateKey";
+            System.out.println("Public key gerada: " + getPublicKey(path));
+            System.out.println("Private key gerada: " + getPrivateKey(path2));*/
     }
 
+
+    public byte[] encryptKey(byte[] inputArray, Key key) throws Exception {
+        byte[] result = {0};
+        
+        Cipher cipher = Cipher.getInstance("RSA");
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+
+        int inputLength = inputArray.length;
+        System.out.println("Encrypted bytes:" + inputLength);
+        int MAX_ENCRYPT_BLOCK = 117;
+        int offSet = 0;
+        byte[] resultBytes = {};
+        byte[] iteration = {};
+
+        while (inputLength-offSet> 0) {
+            if (inputLength-offSet> MAX_ENCRYPT_BLOCK) {
+                iteration = cipher.doFinal(inputArray, offSet, MAX_ENCRYPT_BLOCK);
+                offSet += MAX_ENCRYPT_BLOCK;
+            } else {
+                iteration = cipher.doFinal(inputArray, offSet, inputLength-offSet);
+                offSet = inputLength;
+            }
+            resultBytes = Arrays.copyOf(resultBytes, resultBytes.length + iteration.length);
+            System.arraycopy(iteration, 0, resultBytes, resultBytes.length-iteration.length, iteration.length);
+        }
+
+        return resultBytes;
+    }
+
+
+    public byte[] decryptKey(byte[] inputArray, Key key) throws Exception {
+        Cipher cipher = Cipher.getInstance("RSA");
+        cipher.init(Cipher.DECRYPT_MODE, key);
+
+        int inputLength = inputArray.length;
+        System.out.println("Encrypted bytes:" + inputLength);
+        int MAX_ENCRYPT_BLOCK = 128;
+        int offSet = 0;
+        byte[] resultBytes = {};
+        byte[] iteration = {};
+
+        while (inputLength-offSet> 0) {
+            if (inputLength-offSet> MAX_ENCRYPT_BLOCK) {
+                iteration = cipher.doFinal(inputArray, offSet, MAX_ENCRYPT_BLOCK);
+                offSet += MAX_ENCRYPT_BLOCK;
+            } else {
+                iteration = cipher.doFinal(inputArray, offSet, inputLength-offSet);
+                offSet = inputLength;
+            }
+            resultBytes = Arrays.copyOf(resultBytes, resultBytes.length + iteration.length);
+            System.arraycopy(iteration, 0, resultBytes, resultBytes.length-iteration.length, iteration.length);
+        }
+
+        return resultBytes;
+    }
+    
+    //encrypt with public and private key --> server and user
+    public byte[] encrypt(Key key, byte[] text) {
+        try {
+            Cipher rsa;
+            rsa = Cipher.getInstance("RSA");
+            rsa.init(Cipher.ENCRYPT_MODE, key);
+            return rsa.doFinal(text); //text.getBytes()
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    //derypt with public and private key --> server and user
+    public String decrypt(Key key, byte[] buffer) {
+        try {
+            Cipher rsa;
+            rsa = Cipher.getInstance("RSA");
+            rsa.init(Cipher.DECRYPT_MODE, key);
+            byte[] value = rsa.doFinal(buffer);
+            return new String(value);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public String hashMessage(String secretString) throws NoSuchAlgorithmException, NoSuchProviderException{
+        String hashtext = null;
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+
+        byte[] messageDigest = md.digest(secretString.getBytes());
+        hashtext = convertToHex(messageDigest);
+        System.out.println("hash text:" + hashtext);
+        return hashtext;
+    }
+
+    private String convertToHex(byte[] messageDigest) {
+        BigInteger value = new BigInteger(1, messageDigest);
+        String hexText = value.toString(16);
+
+        while (hexText.length() < 32) 
+            hexText = "0".concat(hexText);
+        return hexText;
+    }
+
+    public byte[] getTimeStampBytes(){
+        Timestamp timestampNow = new Timestamp(System.currentTimeMillis());
+        long timeStampLong = timestampNow.getTime();
+        return Long.toString(timeStampLong).getBytes();
+    }
 
     public void signup(String target){
 		
@@ -130,45 +249,69 @@ public class UserImpl {
         System.out.println("You entered the username " + userName);
         System.out.println("------------------------------");
 
+        StringBuilder sb = new StringBuilder("");
         System.out.print("Please, enter your password: ");
-        String password = System.console().readLine();
+		char [] input = System.console().readPassword();
+        sb.append(input);
+        String password = sb.toString();
+
         /* Para apagar depois, claro */
         System.out.println("You entered the password " + password);
         System.out.println("------------------------------");
 
         //---------------------------------------------------------------------------------------
         try{
-            getKeys();
+            getKeys(userName);
+            
         }catch(NoSuchAlgorithmException e) {
             System.out.println("No algorithm");
         }catch(Exception e){
+            System.out.println("AQUIIIIII");
             throw new RuntimeException(e);
         }
-        
-        
-        //---------------------------------------------------------------------------------------
-        //codigo hash da password + encriptar com privada do cliente
-        //criar chave publica e provada do novo user. Privada fica (aqui) no cliente. Publica vai para onde esta a publica do servidor
+        try{
+            Key serverPublicKey = getPublicKey("../server/rsaPublicKey");
+            
+            ByteString encryptedPassword = ByteString.copyFrom(encrypt(serverPublicKey, password.getBytes()));
+            ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
 
-        File tls_cert = new File("../server/tlscert/server.crt");
-        try {
+            String path = "publicKey/" + userName + "-PublicKey";
+            byte[] clientPublicKeyBytes = Files.readAllBytes(Paths.get(path));
+            System.out.println("CHAVE PUBLICA DO CLIENTE TOSTRING");
+            System.out.println(new String(clientPublicKeyBytes));
+            ByteString encryptedPublicKey = ByteString.copyFrom(encryptKey(clientPublicKeyBytes, serverPublicKey));
+            
+            ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+            messageBytes.write(userName.getBytes());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(encryptedPassword.toByteArray());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(encryptedPublicKey.toByteArray());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(encryptedTimeStamp.toByteArray());
+            
+            String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
+            ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+
+
+            File tls_cert = new File("../server/tlscert/server.crt");
             channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
         
             stub = UserMainServerServiceGrpc.newBlockingStub(channel);
-            UserMainServer.signUpRequest request = UserMainServer.signUpRequest.newBuilder().setUserName(userName).setPassword(password).build();
+            UserMainServer.signUpRequest request = UserMainServer.signUpRequest.newBuilder()
+                .setUserName(userName).setPassword(encryptedPassword).setPublicKeyClient(encryptedPublicKey)
+                .setTimeStamp(encryptedTimeStamp).setHashMessage(encryptedHashMessage).build();
     
             stub.signUp(request);
             
             System.out.println("Successful Registration! Welcome " + userName + ".");
-
-        } catch (SSLException e) {
-            // se a excecao e a do user duplicado, como mostrar apenas texto da mensagem ao utilizador?
-
-            //e.printStackTrace();
-            //e.getMessage();
-            //e.getClass();
+        }
+        catch(Exception e){
+            System.out.println(e);           
         }
     }
+
+
     public void login(String target) throws SSLException{
 
         System.out.println("------------------------------");
@@ -177,8 +320,11 @@ public class UserImpl {
         System.out.println("You entered the username " + userName);
         System.out.println("------------------------------");
 
+        StringBuilder sb = new StringBuilder("");
         System.out.print("Please, enter your password: ");
-        String password = System.console().readLine();
+		char [] input = System.console().readPassword();
+        sb.append(input);
+        String password = sb.toString();
         /* Para apagar depois, claro */
         System.out.println("You entered the password " + password);
         System.out.println("-------- ----------------------");
@@ -417,8 +563,11 @@ public class UserImpl {
         System.out.println("You entered the username " + userName);
         System.out.println("------------------------------");
 
+        StringBuilder sb = new StringBuilder("");
         System.out.print("Please, enter your password: ");
-        String password = System.console().readLine();
+		char [] input = System.console().readPassword();
+        sb.append(input);
+        String password = sb.toString();
         /* Para apagar depois, claro */
         System.out.println("You entered the password " + password);
         System.out.println("-------- ----------------------");

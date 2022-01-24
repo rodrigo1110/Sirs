@@ -16,6 +16,7 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.sql.Timestamp;
@@ -52,7 +53,7 @@ public class mainServer {
     ManagedChannel channel;
     MainBackupServerServiceGrpc.MainBackupServerServiceBlockingStub stub;
     boolean clientActive = false;
-    private databaseAccess database = new databaseAccess("sirs");
+    private databaseAccess database = new databaseAccess("rda");
     Connection connection = database.connect();
     private String userName;
     private String password;
@@ -145,23 +146,24 @@ public class mainServer {
     }
 
 
-    private boolean verifyMessageHash(byte[] Message,String hashMessage ){
+    private boolean verifyMessageHash(byte[] Message,String hashMessage) throws Exception{
         String message = new String(Message);
         if((hashString(message, new byte[0]).compareTo(hashMessage)) == 0)
             return true;
         return false;   
     }
 
-    private boolean verifyTimeStamp(long sentTimeStamp){
+    private boolean verifyTimeStamp(ByteString sentTimeStamp, Key key)  throws Exception{
+        String timeStampDecrypted= decrypt(key, sentTimeStamp.toByteArray());
+        long sentTimeStampLong = Long.parseLong(timeStampDecrypted);
+        
         Timestamp timestampNow = new Timestamp(System.currentTimeMillis());
-        long timeStampLong = timestampNow.getTime() / 1000;
+        long timeStampLong = timestampNow.getTime();
         System.out.println("TimeStamp time: " + timeStampLong);
-        if((timeStampLong - sentTimeStamp) < 20)
+        if((timeStampLong - sentTimeStampLong) < 3200)
             return true;
         return false;
     }
-
-
 
 
 
@@ -192,6 +194,59 @@ public class mainServer {
             e.printStackTrace();
         }
         return null;
+    }
+
+    public byte[] encryptKey(byte[] inputArray, Key key) throws Exception {
+        Cipher cipher = Cipher.getInstance("RSA");
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+
+        int inputLength = inputArray.length;
+        System.out.println("Encrypted bytes:" + inputLength);
+        int MAX_ENCRYPT_BLOCK = 117;
+        int offSet = 0;
+        byte[] resultBytes = {};
+        byte[] iteration = {};
+
+        while (inputLength-offSet> 0) {
+            if (inputLength-offSet> MAX_ENCRYPT_BLOCK) {
+                iteration = cipher.doFinal(inputArray, offSet, MAX_ENCRYPT_BLOCK);
+                offSet += MAX_ENCRYPT_BLOCK;
+            } else {
+                iteration = cipher.doFinal(inputArray, offSet, inputLength-offSet);
+                offSet = inputLength;
+            }
+            resultBytes = Arrays.copyOf(resultBytes, resultBytes.length + iteration.length);
+            System.arraycopy(iteration, 0, resultBytes, resultBytes.length-iteration.length, iteration.length);
+        }
+
+        return resultBytes;
+    }
+
+
+    public byte[] decryptKey(byte[] inputArray, Key key) throws Exception {
+        Cipher cipher = Cipher.getInstance("RSA");
+        cipher.init(Cipher.DECRYPT_MODE, key);
+
+        int inputLength = inputArray.length;
+        System.out.println("Encrypted bytes:" + inputLength);
+        int MAX_ENCRYPT_BLOCK = 128;
+        int offSet = 0;
+        byte[] resultBytes = {};
+        byte[] iteration = {};
+
+        while (inputLength-offSet> 0) {
+            if (inputLength-offSet> MAX_ENCRYPT_BLOCK) {
+                iteration = cipher.doFinal(inputArray, offSet, MAX_ENCRYPT_BLOCK);
+                offSet += MAX_ENCRYPT_BLOCK;
+            } else {
+                iteration = cipher.doFinal(inputArray, offSet, inputLength-offSet);
+                offSet = inputLength;
+            }
+            resultBytes = Arrays.copyOf(resultBytes, resultBytes.length + iteration.length);
+            System.arraycopy(iteration, 0, resultBytes, resultBytes.length-iteration.length, iteration.length);
+        }
+
+        return resultBytes;
     }
 
 
@@ -348,21 +403,16 @@ public class mainServer {
             publicKey = getPublicKey("rsaPublicKey");
             hasKeys = true;
         }
-        /*do servidor */
-        String publicKey = decrypt(privateKey, publickeyClient.toByteArray());
-        byte[] publicKeyBytes = Base64.getDecoder().decode(publicKey);
+
+
+        byte[] publicKeyBytes = decryptKey(publickeyClient.toByteArray(), privateKey);
         X509EncodedKeySpec keySpec = new X509EncodedKeySpec(publicKeyBytes);
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
         Key clientPubKey = keyFactory.generatePublic(keySpec);
-        
-       
-         //esta public key tem de ser a do user --->i ir busca a bd
-        String timeStampDecrypted= decrypt(clientPubKey, timeStamp.toByteArray());
-        long sentTimeStamp = Long.parseLong(timeStampDecrypted);
-        if(!verifyTimeStamp(sentTimeStamp)){
+
+
+        if(!verifyTimeStamp(timeStamp, clientPubKey))
             throw new TimestampException();
-            return;
-        }
 
 
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
@@ -374,18 +424,18 @@ public class mainServer {
         messageBytes.write(":".getBytes());
         messageBytes.write(timeStamp.toByteArray());
 
-        //esta public key tem de ser a do user --->i ir busca a bd
         String hashMessageString = decrypt(clientPubKey, hashMessage.toByteArray());
         if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
             throw new MessageIntegrityException();
-            return;
         }
+        byte[] encryptedHashMessage = encrypt(publicKey, hashMessageString.getBytes());
 
         
         String password = decrypt(privateKey, password_bytes.toByteArray());
+        System.out.println("Password: " + password);
+
 
         if(checkInput(username, password)){
-
             String query = "SELECT username FROM users WHERE username=?";
 
             try {
@@ -403,8 +453,10 @@ public class mainServer {
                     query = "INSERT INTO users ("
                     + " username,"
                     + " password, "
-                    + " salt ) VALUES ("
-                    + "?, ?, ?)";
+                    + " salt, "
+                    + " publickey, "
+                    + " hash ) VALUES ("
+                    + "?, ?, ?, ?, ?)";
                     byte[] salt = createSalt();
 
                     try {
@@ -412,6 +464,9 @@ public class mainServer {
                         st.setString(1, username);
                         st.setString(2, hashString(password, salt));
                         st.setBytes(3, salt);
+                        st.setBytes(4, publickeyClient.toByteArray());
+                        st.setBytes(5, encryptedHashMessage);
+
 
                         st.executeUpdate();
                         st.close();
@@ -450,6 +505,21 @@ public class mainServer {
             privateKey = getPrivateKey("src/main/java/pt/tecnico/grpc/server/rsaPrivateKey");
             publicKey = getPublicKey("rsaPublicKey");
             hasKeys = true;
+        }
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        if(!verifyTimeStamp(timeStamp,publicKey))
+            throw new TimestampException();
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(username.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(password_bytes.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(timeStamp.toByteArray());
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        String hashMessageString = decrypt(publicKey, hashMessage.toByteArray());
+        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            throw new MessageIntegrityException();
         }
 
         String password = decrypt(privateKey, password_bytes.toByteArray());
@@ -667,6 +737,21 @@ public class mainServer {
 
 
     public void logout(ByteString cookie_bytes, ByteString timeStamp, ByteString hashMessage) throws Exception{
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        if(!verifyTimeStamp(timeStamp,publicKey))
+            throw new TimestampException();
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(cookie_bytes.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(timeStamp.toByteArray());
+        
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        String hashMessageString = decrypt(publicKey, hashMessage.toByteArray());
+        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            throw new MessageIntegrityException();
+        }
+
         //desencriptar a cookie
         String cookie = decrypt(privateKey, cookie_bytes.toByteArray());
         
@@ -691,6 +776,30 @@ public class mainServer {
 
     public void upload(String fileID, ByteString cookie_bytes, ByteString file, ByteString symmetricKey, 
                         ByteString inicializationVector, ByteString timeStamp, ByteString hashMessage) throws Exception{
+        
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        if(!verifyTimeStamp(timeStamp,publicKey))
+            throw new TimestampException();
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(fileID.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(cookie_bytes.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(file.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(symmetricKey.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(inicializationVector.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(timeStamp.toByteArray());
+        
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        String hashMessageString = decrypt(publicKey, hashMessage.toByteArray());
+        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            throw new MessageIntegrityException();
+        }
+        
         
         String cookie = decrypt(privateKey, cookie_bytes.toByteArray());
 
@@ -813,6 +922,23 @@ public class mainServer {
 
     public UserMainServer.downloadResponse download(String fileID, ByteString cookie_bytes, ByteString timeStamp, ByteString hashMessage ) throws Exception{
 
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        if(!verifyTimeStamp(timeStamp,publicKey))
+            throw new TimestampException();
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(fileID.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(cookie_bytes.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(timeStamp.toByteArray());
+        
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        String hashMessageString = decrypt(publicKey, hashMessage.toByteArray());
+        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            throw new MessageIntegrityException();
+        }
+        
         //encontrar username correspondente a cookie recebida
 
         String cookie = decrypt(privateKey, cookie_bytes.toByteArray());
@@ -858,6 +984,26 @@ public class mainServer {
 
     public UserMainServer.shareResponse share(String fileID, ByteString cookie_bytes, List<String> user, ByteString timeStamp, ByteString hashMessage) throws Exception{ //se um dos nomes inseridos pelo user estiver errado, mais nenhum e adicionado, por causa da excecao.
     
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        if(!verifyTimeStamp(timeStamp,publicKey))
+            throw new TimestampException();
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(fileID.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(cookie_bytes.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(user.toString().getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(timeStamp.toByteArray());
+        
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        String hashMessageString = decrypt(publicKey, hashMessage.toByteArray());
+        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            throw new MessageIntegrityException();
+        }
+        
+        
         //check if the file exists - done
         //check if "I" am the owner of the file - done, need to update after cookie done
         //check if user already had permission - done
@@ -920,13 +1066,61 @@ public class mainServer {
     }
 
 
-    public UserMainServer.shareKeyResponse shareKey(List<ByteString> symmetricKeyList, List<ByteString> initializationVectorList,
-    List<String> userNameList, String fileName, ByteString timeStamp, ByteString hashMessage) throws Exception{
+    public UserMainServer.shareKeyResponse shareKey(ByteString cookie_bytes,List<ByteString> symmetricKeyList,
+        List<ByteString> initializationVectorList, List<String> userNameList, String fileName, 
+        ByteString timeStamp, ByteString hashMessage) throws Exception{
+        
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        if(!verifyTimeStamp(timeStamp,publicKey))
+            throw new TimestampException();
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(cookie_bytes.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(symmetricKeyList.toString().getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(initializationVectorList.toString().getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(userNameList.toString().getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(fileName.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(timeStamp.toByteArray());
+
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        String hashMessageString = decrypt(publicKey, hashMessage.toByteArray());
+        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            throw new MessageIntegrityException();
+        }
+        
+        
         return UserMainServer.shareKeyResponse.newBuilder().build();
     }
 
+    
+
 
     public void unshare(String fileID, ByteString cookie_bytes, List<String> user, ByteString timeStamp, ByteString hashMessage) throws Exception{ //se um dos nomes inseridos pelo user estiver errado, mais nenhum e adicionado, por causa da excecao.
+        
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        if(!verifyTimeStamp(timeStamp,publicKey))
+            throw new TimestampException();
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(fileID.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(cookie_bytes.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(user.toString().getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(timeStamp.toByteArray());
+
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        String hashMessageString = decrypt(publicKey, hashMessage.toByteArray());
+        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            throw new MessageIntegrityException();
+        }
+        
         //check if the file exists - done
         //check if "I" am the owner of the file - done, need to update after cookie done
         //check if user already had permission - done
@@ -982,6 +1176,24 @@ public class mainServer {
 
     public void deleteUser(String userName, ByteString password_bytes, ByteString timeStamp, ByteString hashMessage) throws Exception{
 
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        if(!verifyTimeStamp(timeStamp,publicKey))
+            throw new TimestampException();
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(userName.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(password_bytes.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(timeStamp.toByteArray());
+
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        String hashMessageString = decrypt(publicKey, hashMessage.toByteArray());
+        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            throw new MessageIntegrityException();
+        }
+        
+        
         String password = decrypt(privateKey, password_bytes.toByteArray());
         byte[] salt = new byte[0];
         String query = "SELECT password FROM users WHERE username=?";
@@ -1102,6 +1314,24 @@ public class mainServer {
 
 
     public void deleteFile(String fileID, ByteString cookie_bytes, ByteString timeStamp, ByteString hashMessage) throws Exception{
+       
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        if(!verifyTimeStamp(timeStamp,publicKey))
+            throw new TimestampException();
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(fileID.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(cookie_bytes.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(timeStamp.toByteArray());
+
+        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+        String hashMessageString = decrypt(publicKey, hashMessage.toByteArray());
+        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            throw new MessageIntegrityException();
+        }
+       
         //enviar excecao para o user
         String cookie = decrypt(privateKey, cookie_bytes.toByteArray());
         
@@ -1145,8 +1375,8 @@ public class mainServer {
 }
 
 //para fazer servidor:
-//funco que verifica os timestamps (<20 segundos?)
-//funcao que verifica integridade da mensagem -> verifica hash message
+//funco que verifica os timestamps (<20 segundos?) - FEITO
+//funcao que verifica integridade da mensagem -> verifica hash message - FEITO
 //formatar (encriptar) respostas do servidor -> share e download
 //criar coluna na tabela users para a public key do user (encriptada com a chave publica do servidor)
 //criar 2 colunas na tabela das permissoes: chave simetrica (encriptada com a chave publica do cliente) e initialization vector (encriptado com a chave publica do cliente correspondente)
