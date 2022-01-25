@@ -504,9 +504,8 @@ public class UserImpl {
         System.out.println("Successful logout.");
     }
 
-/*
-    public void share() throws Exception{
 
+    /*public void share() throws Exception{
         System.out.println("------------------------------");
         System.out.print("Please, enter the name of the file you want to share: ");
         String fileName = System.console().readLine();
@@ -532,22 +531,113 @@ public class UserImpl {
         System.out.println(listOfUsers.toString());
         System.out.println(listOfUsers.size());
 
+
+
+        
+        String hashCookie = hashMessage(cookie);
+        ByteString encryptedhashCookie = ByteString.copyFrom(encrypt(serverPublicKey, hashCookie.getBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(fileName.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(listOfUsers.toString().getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(encryptedhashCookie.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(encryptedTimeStamp.toByteArray());
+
+        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+
+
+        UserMainServer.shareRequest request = UserMainServer.shareRequest.newBuilder().
+            setFileId(fileName).addAllUserName(listOfUsers).setCookie(encryptedhashCookie).
+            setTimeStamp(encryptedTimeStamp).setHashMessage(encryptedHashMessage).build();
+        UserMainServer.shareResponse response = stub.share(request);
+
+
+
+
+
         //chave simetrica (que encriptou o ficheiro) encriptada com a chave publica do (cada um) cliente que tem acesso ao ficheiro
+        //Obter campos shareResponse
+        byte[] encryptedSymmetricKeyByteArray = response.getSymmetricKey().toByteArray();
+        byte[] encryptedhashResponseByteArray = response.getHashMessage().toByteArray();
+        byte[] encryptedTimeStampByteArray = response.getTimeStamp().toByteArray();
+        String encryptedPublicKeyListByteArray = response.getPublicKeysList().toString(); //ENVIAR ISTO ASSIM COMO STRING DO SERVDIOR
+        
+        byte[] SymmetricKeyByteArray = decryptKey(encryptedSymmetricKeyByteArray, privateKey);
+        
+        List<byte[]> listOfPublicKeys = new ArrayList<byte[]>();
+        
+        for(int i = 0; i < response.getPublicKeysList().size(); i++){
+            listOfPublicKeys.add(decrypt(privateKey, response.getPublicKeys(i).toByteArray()).getBytes()); //do lado ddo servidor temos de encriptar cada elemento da lista individualmente
+        }
+
+        if(!verifyTimeStamp(response.getTimeStamp(),serverPublicKey)){
+            System.out.println("Response took to long");
+            return;
+        }
+
+        ByteArrayOutputStream responseBytes = new ByteArrayOutputStream();
+        responseBytes.write(encryptedSymmetricKeyByteArray);
+        responseBytes.write(":".getBytes());
+        responseBytes.write(encryptedPublicKeyListByteArray.getBytes());
+        responseBytes.write(":".getBytes());
+        responseBytes.write(encryptedTimeStampByteArray);
+
+        String hashResponseString = decrypt(serverPublicKey, encryptedhashResponseByteArray);
+        if(!verifyMessageHash(responseBytes.toByteArray(), hashResponseString)){
+            System.out.println("Response integrity compromised");
+            return;
+        }
 
 
-        //try {
-            UserMainServer.shareRequest request = UserMainServer.shareRequest.newBuilder().setFileId(fileName).addAllUserName(listOfUsers).setCookie(cookie).build();
+        shareKey(listOfPublicKeys, listOfUsers, SymmetricKeyByteArray, fileName, encryptedhashCookie);
+
+        //finito
+        System.out.println("The file " + fileName + " was successfully shared.");
+    }*/
+
     
-            stub.share(request);
-            System.out.println("The file " + fileName + " was successfully shared.");
 
-            
-            //se o nome de algum user esta mal, este user tem de ser avisado, por fazer!!!! Server envia mensagem a dizer que um nao existe?*/
+    /*public void shareKey(List<byte[]> listOfPublicKeys, List<String> listOfUsers, byte[] symmetricKey ,String fileName, ByteString encryptedHashCookie) throws Exception{
+        //Prepare shareKeyRequest
+        
+        List<byte[]> listOfEncryptedSymmetricKeys = new ArrayList<byte[]>();
+        for(int i = 0; i < listOfPublicKeys.size(); i++){
+            X509EncodedKeySpec spec = new X509EncodedKeySpec(listOfPublicKeys.get(i));
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+            Key userPublicKey = kf.generatePublic(spec);
+            listOfEncryptedSymmetricKeys.add(encryptKey(symmetricKey, userPublicKey)); //do lado do servidor temos de encriptar cada elemento da lista individualmente
+        }
 
-        //} catch (SSLException e) {
-          //  e.printStackTrace();
-       // } 
-    //}
+        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(encryptedHashCookie.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(listOfEncryptedSymmetricKeys.toString().getBytes() );
+        messageBytes.write(":".getBytes());
+        messageBytes.write(listOfUsers.toString().getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(fileName.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(encryptedTimeStamp.toByteArray());
+
+        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+
+
+        UserMainServer.shareKeyRequest request = UserMainServer.shareKeyRequest.newBuilder().
+            setFileId(fileName).addAllSymmetricKey(listOfEncryptedSymmetricKeys).addAllUserNames(listOfUsers).setCookie(encryptedHashCookie).
+            setTimeStamp(encryptedTimeStamp).setHashMessage(encryptedHashMessage).build();
+        stub.shareKey(request);
+
+    }*/
+
 
 //     public void unshare() throws Exception{
 

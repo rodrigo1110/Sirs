@@ -94,19 +94,17 @@ message shareRequest{
 message shareResponse{
 	bytes symmetricKey = 1;
 	repeated bytes publicKeys = 2;
-	bytes initializationVector = 3;
-	bytes timeStamp = 4;
-	bytes hashMessage = 5;
+	bytes timeStamp = 3;
+	bytes hashMessage = 4;
 }
 
 message shareKeyRequest{
 	bytes cookie = 1;
 	repeated bytes symmetricKey = 2;
-	repeated bytes initializationVector = 3;
-	repeated string userNames = 4; 
-	string fileId = 5;
-	bytes timeStamp = 6;
-	bytes hashMessage = 7;
+	repeated string userNames = 3; 
+	string fileId = 4;
+	bytes timeStamp = 5;
+	bytes hashMessage = 6;
 }
 
 message shareKeyResponse{

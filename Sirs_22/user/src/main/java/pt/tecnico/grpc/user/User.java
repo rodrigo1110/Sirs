@@ -106,10 +106,10 @@ public class User {
 						case "upload":
 							user.upload();
 							break;
+						//case "share":
+						//	user.share();
+						//	break;
 							/*
-						case "share":
-							user.share();
-							break;
 						case "unshare":
 							user.unshare();
 							break;
