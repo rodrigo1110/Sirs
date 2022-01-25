@@ -93,7 +93,7 @@ public class User {
 					}
 				}
 			}
-			else{
+		 	else{
 
 				try{
 					switch (command[0]) {
@@ -106,6 +106,7 @@ public class User {
 						case "upload":
 							user.upload();
 							break;
+							/*
 						case "share":
 							user.share();
 							break;
@@ -118,7 +119,7 @@ public class User {
 						case "deleteFile":
 							user.deleteFile();
 							break;
-						case "help":
+						*/case "help":
 							System.out.printf("Avaliable operations:\n");
 							System.out.printf(" - logout\n");
 							System.out.printf(" - download\n");
@@ -142,10 +143,10 @@ public class User {
 					else{
 						System.out.println(e.getStatus().getDescription());
 					}
+				} catch(Exception e){
+					System.out.println(e);
 				}
 			}
-
-
 		}
 		
 		myObj.close();

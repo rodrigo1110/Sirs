@@ -52,7 +52,7 @@ public class databaseAccess {
              //para criar table files --- se isto resultar, verificar se existe, se nao, criar
             sql = "CREATE TABLE files " +
             "(filename VARCHAR(45) not NULL, " +
-            " filecontent LONGTEXT not NULL, " + 
+            " filecontent BLOB not NULL, " + 
             " fileowner VARCHAR(45) not NULL, " +
             " hash BLOB not NULL, " + 
             " PRIMARY KEY ( filename ))"; 

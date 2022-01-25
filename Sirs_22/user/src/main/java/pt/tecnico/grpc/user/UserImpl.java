@@ -4,6 +4,7 @@ import pt.tecnico.grpc.UserMainServer;
 import pt.tecnico.grpc.UserMainServerServiceGrpc;
 
 import io.grpc.ManagedChannel;
+import io.grpc.StatusRuntimeException;
 import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.GrpcSslContexts;
 import java.io.File;
@@ -21,6 +22,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
 import javax.net.ssl.SSLException;
 
 import com.google.protobuf.ByteString;
@@ -29,6 +31,9 @@ import java.security.*;
 import java.security.spec.*;
 import java.security.spec.RSAKeyGenParameterSpec;
 import java.io.DataOutputStream;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -46,6 +51,7 @@ public class UserImpl {
     private static Key publicKey;
     private static Key serverPublicKey;
     private static boolean hasServerPublicKey = false;
+    private String username = "";
 
 
     public UserImpl(String host, int port){
@@ -186,7 +192,58 @@ public class UserImpl {
 
         return resultBytes;
     }
+
+
+
+
+
+
+
+
+    public static Key createAESKey() throws Exception{
+        SecureRandom securerandom = new SecureRandom();
+        KeyGenerator keygenerator = KeyGenerator.getInstance("AES");
+ 
+        keygenerator.init(256, securerandom);
+        SecretKey key = keygenerator.generateKey();
+ 
+        System.out.println("Chave simetrica gerada: " + key);
+        return key;
+    }
+ 
+    public byte[] createInitializationVector(){
+        byte[] initializationVector = new byte[16];
+        SecureRandom secureRandom = new SecureRandom();
+
+        secureRandom.nextBytes(initializationVector);
+        System.out.println("Initialization vector: " + convertToHex(initializationVector));
+        System.out.println("Initialization vector: " + initializationVector.length);
+        return initializationVector;
+    }
+ 
+
+    public byte[] encryptAES(byte[] plainText, Key secretKey, byte[] initializationVector) throws Exception{
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
+        IvParameterSpec ivParameterSpec = new IvParameterSpec(initializationVector);
+ 
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivParameterSpec);
+ 
+        return cipher.doFinal(plainText);
+    }
+ 
     
+    public byte[] decryptAES(byte[] cipherText, Key secretKey, byte[] initializationVector)throws Exception{
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
+        IvParameterSpec ivParameterSpec = new IvParameterSpec(initializationVector);
+ 
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec);
+ 
+       return cipher.doFinal(cipherText);
+    }
+
+
+
+
     //encrypt with public and private key --> server and user
     public byte[] encrypt(Key key, byte[] text) {
         try {
@@ -216,6 +273,10 @@ public class UserImpl {
         return null;
     }
 
+
+
+
+
     public String hashMessage(String secretString) throws NoSuchAlgorithmException, NoSuchProviderException{
         String hashtext = null;
         MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -226,12 +287,14 @@ public class UserImpl {
         return hashtext;
     }
 
+
     private boolean verifyMessageHash(byte[] Message,String hashMessage) throws Exception{
         String message = new String(Message);
         if((hashMessage(message).compareTo(hashMessage)) == 0)
             return true;
         return false;   
     }
+
 
     private String convertToHex(byte[] messageDigest) {
         BigInteger value = new BigInteger(1, messageDigest);
@@ -242,13 +305,28 @@ public class UserImpl {
         return hexText;
     }
 
+
     public byte[] getTimeStampBytes(){
         Timestamp timestampNow = new Timestamp(System.currentTimeMillis());
         long timeStampLong = timestampNow.getTime();
         return Long.toString(timeStampLong).getBytes();
     }
 
-    public void signup(String target){
+
+    private boolean verifyTimeStamp(ByteString sentTimeStamp, Key key)  throws Exception{
+        String timeStampDecrypted= decrypt(key, sentTimeStamp.toByteArray());
+        long sentTimeStampLong = Long.parseLong(timeStampDecrypted);
+        
+        Timestamp timestampNow = new Timestamp(System.currentTimeMillis());
+        long timeStampLong = timestampNow.getTime();
+        System.out.println("TimeStamp time: " + timeStampLong);
+        if((timeStampLong - sentTimeStampLong) < 32000000)
+            return true;
+        return false;
+    }
+
+
+    public void signup(String target) throws Exception{
 		
         System.out.println("------------------------------");
         System.out.println("User Registration");
@@ -277,59 +355,55 @@ public class UserImpl {
             System.out.println("AQUIIIIII");
             throw new RuntimeException(e);
         }
-        try{
-            
-            if(!hasServerPublicKey){
-                serverPublicKey = getPublicKey("../server/rsaPublicKey");
-                hasServerPublicKey = true;
-            }
-
-            String targetPublic = "publicKey/" + userName + "-PublicKey";
-            String targetPrivate = "privateKey/" + userName + "-PrivateKey";
-            publicKey = getPublicKey(targetPublic);
-            privateKey = getPrivateKey(targetPrivate);
-            
-            ByteString encryptedPassword = ByteString.copyFrom(encrypt(serverPublicKey, password.getBytes()));
-            ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
-
-            String path = "publicKey/" + userName + "-PublicKey";
-            byte[] clientPublicKeyBytes = Files.readAllBytes(Paths.get(path));
-            System.out.println("CHAVE PUBLICA DO CLIENTE TOSTRING");
-            System.out.println(new String(clientPublicKeyBytes));
-            ByteString encryptedPublicKey = ByteString.copyFrom(encryptKey(clientPublicKeyBytes, serverPublicKey));
-            
-            ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
-            messageBytes.write(userName.getBytes());
-            messageBytes.write(":".getBytes());
-            messageBytes.write(encryptedPassword.toByteArray());
-            messageBytes.write(":".getBytes());
-            messageBytes.write(encryptedPublicKey.toByteArray());
-            messageBytes.write(":".getBytes());
-            messageBytes.write(encryptedTimeStamp.toByteArray());
-            
-            String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
-            ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
-
-
-            File tls_cert = new File("../server/tlscert/server.crt");
-            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
         
-            stub = UserMainServerServiceGrpc.newBlockingStub(channel);
-            UserMainServer.signUpRequest request = UserMainServer.signUpRequest.newBuilder()
-                .setUserName(userName).setPassword(encryptedPassword).setPublicKeyClient(encryptedPublicKey)
-                .setTimeStamp(encryptedTimeStamp).setHashMessage(encryptedHashMessage).build();
+        if(!hasServerPublicKey){
+            serverPublicKey = getPublicKey("../server/rsaPublicKey");
+            hasServerPublicKey = true;
+        }
+
+        String targetPublic = "publicKey/" + userName + "-PublicKey";
+        String targetPrivate = "privateKey/" + userName + "-PrivateKey";
+        publicKey = getPublicKey(targetPublic);
+        privateKey = getPrivateKey(targetPrivate);
+        
+        ByteString encryptedPassword = ByteString.copyFrom(encrypt(serverPublicKey, password.getBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+
+        String path = "publicKey/" + userName + "-PublicKey";
+        byte[] clientPublicKeyBytes = Files.readAllBytes(Paths.get(path));
+        System.out.println("CHAVE PUBLICA DO CLIENTE TOSTRING");
+        System.out.println(new String(clientPublicKeyBytes));
+        ByteString encryptedPublicKey = ByteString.copyFrom(encryptKey(clientPublicKeyBytes, serverPublicKey));
+        
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(userName.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(encryptedPassword.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(encryptedPublicKey.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(encryptedTimeStamp.toByteArray());
+        
+        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+
+
+        File tls_cert = new File("../server/tlscert/server.crt");
+        channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
     
-            stub.signUp(request);
-            
-            System.out.println("Successful Registration! Welcome " + userName + ".");
-        }
-        catch(Exception e){
-            System.out.println(e);           
-        }
-    }
+        stub = UserMainServerServiceGrpc.newBlockingStub(channel);
+        UserMainServer.signUpRequest request = UserMainServer.signUpRequest.newBuilder()
+            .setUserName(userName).setPassword(encryptedPassword).setPublicKeyClient(encryptedPublicKey)
+            .setTimeStamp(encryptedTimeStamp).setHashMessage(encryptedHashMessage).build();
+
+        stub.signUp(request);
+        
+        System.out.println("Successful Registration! Welcome " + userName + ".");
+    }    
+    
 
 
-    public void login(String target) throws SSLException{
+    public void login(String target) throws Exception{
 
         System.out.println("------------------------------");
         System.out.print("Please, enter your username: ");
@@ -346,64 +420,92 @@ public class UserImpl {
         System.out.println("You entered the password " + password);
         System.out.println("-------- ----------------------");
 
-        try{
-
-            if(!hasServerPublicKey){
-                serverPublicKey = getPublicKey("../server/rsaPublicKey");
-                hasServerPublicKey = true;
-            }
-            String targetPublic = "publicKey/" + userName + "-PublicKey";
-            String targetPrivate = "privateKey/" + userName + "-PrivateKey";
-            publicKey = getPublicKey(targetPublic);
-            privateKey = getPrivateKey(targetPrivate);
-
-            ByteString encryptedPassword = ByteString.copyFrom(encrypt(serverPublicKey, password.getBytes()));
-            ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
-
-            ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
-            messageBytes.write(userName.getBytes());
-            messageBytes.write(":".getBytes());
-            messageBytes.write(encryptedPassword.toByteArray());
-            messageBytes.write(":".getBytes());
-            messageBytes.write(encryptedTimeStamp.toByteArray());
-
-            String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
-            ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
-
-            File tls_cert = new File("../server/tlscert/server.crt");
-            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
         
-            stub = UserMainServerServiceGrpc.newBlockingStub(channel);
-            UserMainServer.loginRequest request = UserMainServer.loginRequest.newBuilder().
-            setUserName(userName).setPassword(encryptedPassword)
-            .setTimeStamp(encryptedTimeStamp).setHashMessage(encryptedHashMessage).build();
+
+        if(!hasServerPublicKey){
+            serverPublicKey = getPublicKey("../server/rsaPublicKey");
+            hasServerPublicKey = true;
+        }
+        String targetPublic = "publicKey/" + userName + "-PublicKey";
+        String targetPrivate = "privateKey/" + userName + "-PrivateKey";
+        publicKey = getPublicKey(targetPublic);
+        privateKey = getPrivateKey(targetPrivate);
+
+        ByteString encryptedPassword = ByteString.copyFrom(encrypt(serverPublicKey, password.getBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(userName.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(encryptedPassword.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(encryptedTimeStamp.toByteArray());
+
+        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+
+        File tls_cert = new File("../server/tlscert/server.crt");
+        channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
     
-            UserMainServer.loginResponse response = stub.login(request);
+        stub = UserMainServerServiceGrpc.newBlockingStub(channel);
+        UserMainServer.loginRequest request = UserMainServer.loginRequest.newBuilder().
+        setUserName(userName).setPassword(encryptedPassword)
+        .setTimeStamp(encryptedTimeStamp).setHashMessage(encryptedHashMessage).build();
 
-            byte[] cookie = response.getCookie().toByteArray();
-            String cookieDecrypted = decrypt(privateKey, cookie);
-            byte[] hashCookie = response.getHashCookie().toByteArray();
-            String hashCookieDecrypted = decrypt(serverPublicKey, hashCookie);
+        UserMainServer.loginResponse response = stub.login(request);
 
-            if(!verifyMessageHash(cookieDecrypted.getBytes(), hashCookieDecrypted)){
-                System.out.println("Response message corrupted.");
-                return;
-            }
-    
-            System.out.println(response);
-            this.cookie = cookieDecrypted;
+        byte[] cookie = response.getCookie().toByteArray();
+        String cookieDecrypted = decrypt(privateKey, cookie);
+        byte[] hashCookie = response.getHashCookie().toByteArray();
+        String hashCookieDecrypted = decrypt(serverPublicKey, hashCookie);
 
-            System.out.println("COOKIE: " + cookieDecrypted);
-
-        } catch (Exception e) {
-            System.out.println(e);
+        if(!verifyMessageHash(cookieDecrypted.getBytes(), hashCookieDecrypted)){
+            System.out.println("Response message corrupted.");
+            return;
         }
 
-        System.out.println("Successful Login! Welcome back " + userName + ".");
+        System.out.println(response);
+        this.cookie = cookieDecrypted;
 
+        System.out.println("COOKIE: " + cookieDecrypted);
+
+        username = userName;
+
+        System.out.println("Successful Login! Welcome back " + userName + ".");
     }
 
-    public void share(){
+
+    public void logout() throws Exception{
+ 		      
+        String hashCookie = hashMessage(cookie);
+        ByteString encryptedhashCookie = ByteString.copyFrom(encrypt(serverPublicKey, hashCookie.getBytes()));
+
+
+        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(encryptedhashCookie.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(encryptedTimeStamp.toByteArray());
+
+        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+        
+        
+        UserMainServer.logoutRequest request = UserMainServer.logoutRequest.
+        newBuilder().setCookie(encryptedhashCookie).setTimeStamp(encryptedTimeStamp).
+        setHashMessage(encryptedHashMessage).build();
+
+        UserMainServer.logoutResponse response = stub.logout(request);
+            
+        
+
+        cookie = "";
+        System.out.println("Successful logout.");
+    }
+
+/*
+    public void share() throws Exception{
 
         System.out.println("------------------------------");
         System.out.print("Please, enter the name of the file you want to share: ");
@@ -440,75 +542,60 @@ public class UserImpl {
             System.out.println("The file " + fileName + " was successfully shared.");
 
             
-            /* se o nome de algum user esta mal, este user tem de ser avisado, por fazer!!!! Server envia mensagem a dizer que um nao existe?*/
+            //se o nome de algum user esta mal, este user tem de ser avisado, por fazer!!!! Server envia mensagem a dizer que um nao existe?*/
 
-        /*} catch (SSLException e) {
-            e.printStackTrace();
-        } */
+        //} catch (SSLException e) {
+          //  e.printStackTrace();
+       // } 
+    //}
 
+//     public void unshare() throws Exception{
 
-    }
+//         System.out.println("------------------------------");
+//         System.out.print("Please, enter the name of the file you want to unshare: ");
+//         String fileName = System.console().readLine();
+//         System.out.println("You entered the file " + fileName);
+//         System.out.println("------------------------------");
 
-    public void unshare(){
+//         List<String> listOfUsers = new ArrayList<String>();
+//         String userName = "";  
+//         System.out.println("Please, enter the usernames of the users you want to unshare this file with.");
+//         System.out.println("When you are done, press 'x'.");
+//         Integer counter = 1;
+//         while(!userName.equals("x")){
+//             System.out.print("Username" + counter + ": ");
+//             counter++;
+//             userName = System.console().readLine();
+//             listOfUsers.add(userName);
+//         }
+//         //delete de 'x'
+//         listOfUsers.remove(listOfUsers.size()-1);
 
-        System.out.println("------------------------------");
-        System.out.print("Please, enter the name of the file you want to unshare: ");
-        String fileName = System.console().readLine();
-        System.out.println("You entered the file " + fileName);
-        System.out.println("------------------------------");
+//         //para testar
+//         System.out.println("list of users to string: " + listOfUsers.toString());
+//         System.out.println(listOfUsers.toString());
+//         System.out.println(listOfUsers.size());
 
-        List<String> listOfUsers = new ArrayList<String>();
-        String userName = "";  
-        System.out.println("Please, enter the usernames of the users you want to unshare this file with.");
-        System.out.println("When you are done, press 'x'.");
-        Integer counter = 1;
-        while(!userName.equals("x")){
-            System.out.print("Username" + counter + ": ");
-            counter++;
-            userName = System.console().readLine();
-            listOfUsers.add(userName);
-        }
-        //delete de 'x'
-        listOfUsers.remove(listOfUsers.size()-1);
-
-        //para testar
-        System.out.println("list of users to string: " + listOfUsers.toString());
-        System.out.println(listOfUsers.toString());
-        System.out.println(listOfUsers.size());
-
-       // File tls_cert = new File("../server/tlscert/server.crt");
-/*         try {
-            final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
-         */
-            UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
-            UserMainServer.unshareRequest request = UserMainServer.unshareRequest.newBuilder().setFileId(fileName).addAllUserName(listOfUsers).setCookie(cookie).build();
+//        // File tls_cert = new File("../server/tlscert/server.crt");
+// //      try {
+//           //  final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+//          //
+//             UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
+//             UserMainServer.unshareRequest request = UserMainServer.unshareRequest.newBuilder().setFileId(fileName).addAllUserName(listOfUsers).setCookie(cookie).build();
     
-            stub.unshare(request);
+//             stub.unshare(request);
 
-            System.out.println("The file " + fileName + " was successfully unshared.");
+//             System.out.println("The file " + fileName + " was successfully unshared.");
 
-/*         } catch (SSLException e) {
-            e.printStackTrace();
-        }  */
-    }
+// //         } catch (SSLException e) {
+//      //       e.printStackTrace();
+//      //   }  
+//     }
     
 
-    public void logout(){
-/* 		try {
- */            
-        UserMainServer.logoutRequest request = UserMainServer.logoutRequest.newBuilder().setCookie(cookie).build();
-        UserMainServer.logoutResponse response = stub.logout(request);
 
-            //channel.shutdownNow();
-/*         } catch (SSLException e) {
-            e.printStackTrace();
-        }  */
 
-        cookie = "";
-        System.out.println("Successful logout.");
-    }
-
-    public void download(){
+    public void download() throws Exception{
 		
         System.out.println("------------------------------");
         System.out.print("Please, enter the name of the file you want to download: ");
@@ -516,50 +603,95 @@ public class UserImpl {
         System.out.println("You entered the file " + fileName);
         System.out.println("------------------------------");
 
-
-        //File tls_cert = new File("../server/tlscert/server.crt");
-        //try {
-            /*final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
         
-            UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);*/
-            UserMainServer.downloadRequest request = UserMainServer.downloadRequest.newBuilder().setFileId(fileName).setCookie(cookie).build();
+        String hashCookie = hashMessage(cookie);
+        ByteString encryptedhashCookie = ByteString.copyFrom(encrypt(serverPublicKey, hashCookie.getBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(fileName.getBytes());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(encryptedhashCookie.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(encryptedTimeStamp.toByteArray());
+
+        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+
+
+        UserMainServer.downloadRequest request = UserMainServer.downloadRequest.newBuilder().
+            setFileId(fileName).setCookie(encryptedhashCookie).
+            setTimeStamp(encryptedTimeStamp).setHashMessage(encryptedHashMessage).build();
+
+        UserMainServer.downloadResponse response = stub.download(request);
+
+
+        byte[] encryptedFileContentByteArray = response.getFileContent().toByteArray();
+        byte[] encryptedSymmetricKeyByteArray = response.getKey().toByteArray();
+        byte[] initializationVectorByteArray = response.getInitializationVector().toByteArray();
+        byte[] encryptedhashResponseByteArray = response.getHashMessage().toByteArray();
+        byte[] encryptedTimeStampByteArray = response.getTimeStamp().toByteArray();
+
+        
+        if(!verifyTimeStamp(response.getTimeStamp(),serverPublicKey)){
+            System.out.println("Response took to long");
+            return;
+        }
+
+        ByteArrayOutputStream responseBytes = new ByteArrayOutputStream();
+        responseBytes.write(encryptedFileContentByteArray);
+        responseBytes.write(":".getBytes());
+        responseBytes.write(encryptedSymmetricKeyByteArray);
+        responseBytes.write(":".getBytes());
+        responseBytes.write(initializationVectorByteArray);
+        responseBytes.write(":".getBytes());
+        responseBytes.write(encryptedTimeStampByteArray);
+
+        String hashResponseString = decrypt(serverPublicKey, encryptedhashResponseByteArray);
+        if(!verifyMessageHash(responseBytes.toByteArray(), hashResponseString)){
+            System.out.println("Response integrity compromised");
+            return;
+        }
+
+
+
+        byte[] decryptedSymmetricKeyByteArray =  decryptKey(encryptedSymmetricKeyByteArray, privateKey);
+        SecretKey decryptedSymmetricKey = new SecretKeySpec(decryptedSymmetricKeyByteArray, 0, decryptedSymmetricKeyByteArray.length, "AES");
+
+        System.out.println("DecryptedInitializationVector: " + convertToHex(initializationVectorByteArray));
+        System.out.println("DecryptedInitializationVector Size: " + initializationVectorByteArray.length);
+        byte[] decryptedFileContentByteArray = decryptAES(encryptedFileContentByteArray, decryptedSymmetricKey, initializationVectorByteArray);
+
+        try {
+            File file = new File("downloads/" + fileName);
+            //Writer fileWriter = new FileWriter("c:\\data\\output.txt", true);  //appends to file
+
+
+            if (file.createNewFile()) {
+
+                System.out.println("New file created: " + file.getName());
+
+                OutputStream os = new FileOutputStream(file);
     
-            UserMainServer.downloadResponse response = stub.download(request);
+                os.write(decryptedFileContentByteArray);
+        
+                os.close();
 
-            try {
-                File file = new File("downloads/" + fileName);
+                System.out.println("Successful Download! You can find your downloaded file in your downloads directory.");
 
-                if (file.createNewFile()) {
-
-                  System.out.println("New file created: " + file.getName());
-    
-                  OutputStream os = new FileOutputStream(file);
-      
-                  os.write(response.getFileContent().toByteArray());
-          
-                  os.close();
-
-                  System.out.println("Successful Download! You can find your downloaded file in your downloads directory.");
-
-                } 
-                
-                else {
-                  System.out.println("File already exists.");
-                  //devemos apagar e criar um novo?
-                }
-              
-            } catch(Exception e){
-                System.out.println(e.toString());
+            } 
+            
+            else {
+                System.out.println("File already exists.");
             }
-                
-        /*} catch (SSLException e) {
-            e.toString();
-        } */
-
-
+            
+        } catch(Exception e){
+            System.out.println(e.toString());
+        }
     }
     
-    public void upload(){
+    public void upload() throws Exception{
 
         System.out.println("------------------------------");
         System.out.print("Please, enter the name of the file you want to upload: ");
@@ -570,10 +702,48 @@ public class UserImpl {
         try{
         
             Path path = Paths.get("uploads/" + fileName);
-
             byte[] byteArray = Files.readAllBytes(path);
-
             ByteString bytestring = ByteString.copyFrom(byteArray);
+
+
+
+            String hashCookie = hashMessage(cookie);
+            ByteString encryptedhashCookie = ByteString.copyFrom(encrypt(serverPublicKey, hashCookie.getBytes()));
+            ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+
+
+            Key SymmetricKey = createAESKey();
+            byte[] symmetricKeyArray = SymmetricKey.getEncoded(); //se der erro ---> outra forma
+            ByteString encryptedSymmetricKey = ByteString.copyFrom(encryptKey(symmetricKeyArray, publicKey));
+
+            byte[] initializationVector = createInitializationVector();
+            ByteString initializationVectorByteString = ByteString.copyFrom(initializationVector);
+            System.out.println("InitializationVector Size: " + initializationVectorByteString.toByteArray().length);
+
+            byte[] encryptedFileContentBytes = encryptAES(byteArray, SymmetricKey, initializationVector);
+            ByteString encryptedFileContentByteString = ByteString.copyFrom(encryptedFileContentBytes);
+            System.out.println("Encrypted Message: " + new String(encryptedFileContentBytes));
+     
+            //byte[] decryptedText = decryptAES(cipherText, SymmetricKey, initializationVector);
+            //System.out.println("Original Message: " + new String(decryptedText));
+            
+            
+            ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+            messageBytes.write(fileName.getBytes());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(encryptedhashCookie.toByteArray());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(encryptedFileContentBytes);
+            messageBytes.write(":".getBytes());
+            messageBytes.write(encryptedSymmetricKey.toByteArray());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(initializationVectorByteString.toByteArray());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(encryptedTimeStamp.toByteArray());
+
+            String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
+            ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+
 
             //a funcao de hash de ficheiros recebe argumento do tipo ByteString
             //encripta a hash com a chave privada do cliente
@@ -582,16 +752,17 @@ public class UserImpl {
 
             //try {
                 
-                UserMainServer.uploadRequest request = UserMainServer.uploadRequest.newBuilder().setFileId(fileName).setFileContent(bytestring).setCookie(cookie).build();
+                UserMainServer.uploadRequest request = UserMainServer.uploadRequest.newBuilder().
+                setFileId(fileName).setFileContent(encryptedFileContentByteString).
+                setSymmetricKey(encryptedSymmetricKey).setInitializationVector(initializationVectorByteString).
+                setTimeStamp(encryptedTimeStamp).setCookie(encryptedhashCookie).
+                setHashMessage(encryptedHashMessage).build();
         
                 stub.upload(request);
 
                 System.out.println("Successful Upload!");
 
                     
-            /*} catch (SSLException e) {
-                e.toString();
-            } */ 
         } catch (Exception e){
             if(e.getClass().toString().compareTo("class java.nio.file.NoSuchFileException") == 0){
                 System.out.println("That file does not exist in your uploads directory.");
@@ -602,7 +773,7 @@ public class UserImpl {
         } 
 
     }
-
+/*s
 
     public void deleteUser(String target){
             
@@ -617,7 +788,7 @@ public class UserImpl {
 		char [] input = System.console().readPassword();
         sb.append(input);
         String password = sb.toString();
-        /* Para apagar depois, claro */
+        // Para apagar depois, claro 
         System.out.println("You entered the password " + password);
         System.out.println("-------- ----------------------");
 
@@ -652,6 +823,6 @@ public class UserImpl {
     
         System.out.println("The file " + fileName + " was successfully deleted.");
 
-    }
+    }*/
 
 }
