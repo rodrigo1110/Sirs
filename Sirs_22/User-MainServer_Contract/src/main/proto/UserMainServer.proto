@@ -26,6 +26,22 @@ message uploadRequest{
 message uploadResponse{
 }
 
+message isUpdateRequest{
+	string fileId = 1;
+	bytes cookie = 2;
+	bytes timeStamp = 3;
+	bytes hashMessage = 4;
+}
+
+message isUpdateResponse{
+	bool isUpdate = 1;
+	bytes symmetricKey = 2;
+	bytes initializationVector = 3;
+	bytes timeStamp = 4;
+	bytes hashMessage = 5;
+}
+
+
 message signUpRequest{
 	string userName = 1;
 	bytes password = 2;
@@ -136,6 +152,7 @@ service UserMainServerService {
 	rpc login(loginRequest) returns (loginResponse);
 	rpc signUp(signUpRequest) returns (signUpResponse);
 	rpc logout(logoutRequest) returns (logoutResponse);
+	rpc isUpdate(isUpdateRequest) returns (isUpdateResponse);
 	rpc upload(uploadRequest) returns (uploadResponse);
 	rpc download(downloadRequest) returns (downloadResponse);
 	rpc share(shareRequest) returns (shareResponse);

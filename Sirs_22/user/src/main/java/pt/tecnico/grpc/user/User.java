@@ -67,7 +67,7 @@ public class User {
 				try{
 					switch (command[0]) {
 						case "signup":
-							user.signup( target);
+							user.signup(target);
 							break;
 						case "login":
 							user.login(target);
@@ -106,20 +106,19 @@ public class User {
 						case "upload":
 							user.upload();
 							break;
-						//case "share":
-						//	user.share();
-						//	break;
-							/*
+						case "share":
+							user.share();
+							break;
 						case "unshare":
 							user.unshare();
 							break;
 						case "deleteUser":
-							user.deleteUser(target);
+							user.deleteUser();
 							break;
 						case "deleteFile":
 							user.deleteFile();
 							break;
-						*/case "help":
+						case "help":
 							System.out.printf("Avaliable operations:\n");
 							System.out.printf(" - logout\n");
 							System.out.printf(" - download\n");

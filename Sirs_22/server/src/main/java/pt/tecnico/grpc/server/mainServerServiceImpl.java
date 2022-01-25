@@ -90,6 +90,24 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 
 
 	@Override 
+	public void isUpdate(UserMainServer.isUpdateRequest request, StreamObserver<UserMainServer.isUpdateResponse> responseObserver){
+		try{
+			UserMainServer.isUpdateResponse response = server.isUpdate(request.getFileId(),request.getCookie(),
+			request.getTimeStamp(),request.getHashMessage());
+
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();	
+		}
+		catch (RansomwareAttackException e){
+			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+
+	@Override 
 	public void upload(UserMainServer.uploadRequest request, StreamObserver<UserMainServer.uploadResponse> responseObserver){
 		try{
 			server.upload(request.getFileId(),request.getCookie(),request.getFileContent(), request.getSymmetricKey(), 
@@ -146,9 +164,10 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override 
 	public void shareKey(UserMainServer.shareKeyRequest request, StreamObserver<UserMainServer.shareKeyResponse> responseObserver){
 		try{
-			UserMainServer.shareKeyResponse response = server.shareKey(request.getCookie(), request.getSymmetricKeyList(), request.getInitializationVectorList(),
-			request.getUserNamesList(), request.getFileId(), request.getTimeStamp(), request.getHashMessage());
-
+			server.shareKey(request.getCookie(), request.getSymmetricKeyList(),
+				request.getUserNamesList(), request.getFileId(), request.getTimeStamp(), request.getHashMessage());
+			
+			UserMainServer.shareKeyResponse response = UserMainServer.shareKeyResponse.newBuilder().build();
 			responseObserver.onNext(response); 
 			responseObserver.onCompleted();	
 		}
