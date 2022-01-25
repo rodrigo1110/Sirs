@@ -326,6 +326,58 @@ public class UserImpl {
     }
 
 
+    public String safePassword(){
+
+        System.out.print("Please, enter your password: ");
+        //String password = System.console().readLine();
+        /* Para apagar depois, claro */
+        //String password;
+        StringBuilder sb = new StringBuilder("");
+        char [] input = System.console().readPassword();
+
+        boolean hasLower , hasUpper, hasDigit;
+        boolean safe = false;
+        while(safe == false){
+            hasLower = false;
+            hasUpper = false;
+            hasDigit = false;
+            
+            int len = input.length;
+            if(len<7){
+                System.out.println("Password must be have at least 7 characters(Lower and UpperCase, with at least 1 digit) ");
+                System.out.print("Please, enter your password: ");
+                input = System.console().readPassword();
+            }
+            else{
+                for(char i : input){
+                    if(i >= 65 && i <= 90){
+                        hasUpper = true;
+                    }
+                    else if(i >= 97 && i <= 122){
+                        hasLower = true;
+                    }
+                    else if(i >= 48 && i <= 57){
+                        hasDigit = true;
+                    }
+                }
+
+                if(hasUpper == true && hasLower == true && hasDigit == true){
+                    safe = true;
+                    break;
+                }
+                System.out.println("Password must be have at least 7 characters(Lower and UpperCase, with at least 1 digit) ");
+                System.out.print("Please, enter your password: ");
+                input = System.console().readPassword();
+                
+            }
+            
+        }
+        sb.append(input);
+        String password = sb.toString();
+        return password;
+    }
+
+
     public void signup(String target) throws Exception{
 		
         System.out.println("------------------------------");
@@ -335,11 +387,7 @@ public class UserImpl {
         System.out.println("You entered the username " + userName);
         System.out.println("------------------------------");
 
-        StringBuilder sb = new StringBuilder("");
-        System.out.print("Please, enter your password: ");
-		char [] input = System.console().readPassword();
-        sb.append(input);
-        String password = sb.toString();
+        String password = safePassword();
 
         /* Para apagar depois, claro */
         System.out.println("You entered the password " + password);
