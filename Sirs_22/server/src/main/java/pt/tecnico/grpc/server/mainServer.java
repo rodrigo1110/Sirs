@@ -7,6 +7,8 @@ import pt.tecnico.grpc.MainBackupServerServiceGrpc;
 import pt.tecnico.grpc.MainBackupServer;
 
 import io.grpc.ManagedChannel;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
 
@@ -366,13 +368,14 @@ public class mainServer {
                 String hashLineDB = decrypt(publicKey, encryptedHashLineDB);
                 String hashLine = createUserHashDb(userName, password, cookie, salt, publicKeyDB);
                 
-                if(hashLineDB.compareTo(hashLine) != 0){ //change this verification for ==0  for testing ransomware attack
+                if(hashLineDB.compareTo(hashLine) != 0){ //change this verification for ==0  for testing full ransomware attack
                     System.out.println("Error Error Error... Integrity of table users compromissed! Shutting Down...");
                     if(clientActive){
                         MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
                         stub.promote(request);
-                    }
-                    throw new RansomwareAttackException();
+                        throw new RansomwareAttackException();
+                    }else
+                        throw new FullRansomwareAttackException();
                 }            
             }
         } 
@@ -400,13 +403,14 @@ public class mainServer {
                 String hashLineDB = decrypt(publicKey, encryptedHashLineDB);
                 String hashLine = createFileHashDb(fileName, fileContent, fileOwner);
                 
-                if(hashLineDB.compareTo(hashLine) != 0){
+                if(hashLineDB.compareTo(hashLine) != 0){ 
                     System.out.println("Eror Error Error... Integrity of table files compromissed! Shutting down...");
                     if(clientActive){
                         MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
                         stub.promote(request);
-                    }
-                    throw new RansomwareAttackException();
+                        throw new RansomwareAttackException();
+                    }else
+                        throw new FullRansomwareAttackException();
                 }            
             }
         } 
@@ -439,8 +443,9 @@ public class mainServer {
                     if(clientActive){
                         MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
                         stub.promote(request);
-                    }
-                    throw new RansomwareAttackException();
+                        throw new RansomwareAttackException();
+                    }else
+                        throw new FullRansomwareAttackException();
                 }            
             }
         } 
@@ -1946,168 +1951,139 @@ public class mainServer {
 
 
     public void sendUserToBackUp(String username, String hashPassword, byte[] salt, ByteString publicKey, ByteString hash){
-
-        final String target = "localhost" + ":" + "8092";
-
-        ByteString saltByteString = ByteString.copyFrom(salt);
-
-        File tls_cert = new File("tlscert/backupServer.crt");
         try{
-
-            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
-        
-            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
+            ByteString saltByteString = ByteString.copyFrom(salt);
 
             MainBackupServer.writeUserRequest request = MainBackupServer.writeUserRequest.newBuilder().setUsername(username).
             setHashPassword(hashPassword).setSalt(saltByteString).
             setPublicKey(publicKey).setHash(hash).build();
             MainBackupServer.writeUserResponse response = stub.writeUser(request);
         }
-        catch(SSLException e){
+        catch(StatusRuntimeException e){
+            if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){
+                System.out.println("Ransmomware attack detected in Backup.");
+			    clientActive = false;
+                return;
+			}
             System.out.println(e);
         }
     }
 
 
     public void sendPermissionToBackUp(String fileName, String userName, ByteString symmetricKey, ByteString initializationVector, ByteString hash){
-
-        final String target = "localhost" + ":" + "8092";
-
-
-        File tls_cert = new File("tlscert/backupServer.crt");
         try{
 
-            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
-        
-            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
-
-            MainBackupServer.writePermissionRequest request = MainBackupServer.writePermissionRequest.newBuilder().setFileName(fileName).
-            setUserName(userName).setSymmetricKey(symmetricKey).setInitializationVector(initializationVector).
+            MainBackupServer.writePermissionRequest request = MainBackupServer.writePermissionRequest.newBuilder().setFileName(fileName)
+            .setUserName(userName).setSymmetricKey(symmetricKey).setInitializationVector(initializationVector).
             setHash(hash).build();
             MainBackupServer.writePermissionResponse response = stub.writePermission(request);
         }
-        catch(SSLException e){
+        catch(StatusRuntimeException e){
+            if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){
+                System.out.println("Ransmomware attack detected in Backup.");
+			    clientActive = false;
+                return;
+			}
             System.out.println(e);
         }
     }
 
     public void removePermissionFromBackUp(String fileName, String userName){
-
-        final String target = "localhost" + ":" + "8092";
-
-
-        File tls_cert = new File("tlscert/backupServer.crt");
         try{
 
-            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
-        
-            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
-
-            MainBackupServer.removePermissionRequest request = MainBackupServer.removePermissionRequest.newBuilder().setFileName(fileName).setUserName(userName).build();
+            MainBackupServer.removePermissionRequest request = MainBackupServer.removePermissionRequest.newBuilder().setFileName(fileName)
+            .setUserName(userName).build();
             MainBackupServer.removePermissionResponse response = stub.removePermission(request);
         }
-        catch(SSLException e){
+        catch(StatusRuntimeException e){
+            if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){
+                System.out.println("Ransmomware attack detected in Backup.");
+			    clientActive = false;
+                return;
+			}
             System.out.println(e);
         }
     }
 
     public void sendFileToBackUp(String filename, ByteString filecontent,  String fileowner, ByteString hash){
-
-        final String target = "localhost" + ":" + "8092";
-
-
-        File tls_cert = new File("tlscert/backupServer.crt");
         try{
-
-            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
-        
-            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
 
             MainBackupServer.writeFileRequest request = MainBackupServer.writeFileRequest.newBuilder().setFileName(filename).
             setFileContent(filecontent).setFileOwner(fileowner).setHash(hash).build();
             MainBackupServer.writeFileResponse response = stub.writeFile(request);
         }
-        catch(SSLException e){
+        catch(StatusRuntimeException e){
+            if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){
+                System.out.println("Ransmomware attack detected in Backup.");
+			    clientActive = false;
+                return;
+			}
             System.out.println(e);
         }
     }
     
     public void updateCookieBackUp(String userName, String cookie, ByteString hash){
- 
-        final String target = "localhost" + ":" + "8092";
-
-
-        File tls_cert = new File("tlscert/backupServer.crt");
         try{
-
-            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
-        
-            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
 
             MainBackupServer.updateCookieRequest request = MainBackupServer.updateCookieRequest.newBuilder().
             setUserName(userName).setCookie(cookie).setHash(hash).build();
             MainBackupServer.updateCookieResponse response = stub.updateCookie(request);
         }
-        catch(SSLException e){
+        catch(StatusRuntimeException e){
+            if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){
+                System.out.println("Ransmomware attack detected in Backup.");
+			    clientActive = false;
+                return;
+			}
             System.out.println(e);
         }
     }
 
     public void updateFileBackUp(String fileName, ByteString fileContent, ByteString hash){
- 
-        final String target = "localhost" + ":" + "8092";
-
-
-        File tls_cert = new File("tlscert/backupServer.crt");
-        try{
-
-            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
-        
-            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
+       try{
 
             MainBackupServer.updateFileRequest request = MainBackupServer.updateFileRequest.newBuilder().
             setFileName(fileName).setFileContent(fileContent).setHash(hash).build();
             MainBackupServer.updateFileResponse response = stub.updateFile(request);
         }
-        catch(SSLException e){
+        catch(StatusRuntimeException e){
+            if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){
+                System.out.println("Ransmomware attack detected in Backup.");
+			    clientActive = false;
+                return;
+			}
             System.out.println(e);
         }
     }
    
     public void deleteFileBackUp(String fileName){
- 
-        final String target = "localhost" + ":" + "8092";
-
-        File tls_cert = new File("tlscert/backupServer.crt");
         try{
-
-            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
-        
-            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
 
             MainBackupServer.deleteFileRequest request = MainBackupServer.deleteFileRequest.newBuilder().setFileName(fileName).build();
             MainBackupServer.deleteFileResponse response = stub.deleteFile(request);
         }
-        catch(SSLException e){
+         catch(StatusRuntimeException e){
+            if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){
+                System.out.println("Ransmomware attack detected in Backup.");
+			    clientActive = false;
+                return;
+			}
             System.out.println(e);
         }
     }
 
     public void deleteUserBackUp(String userName){
- 
-        final String target = "localhost" + ":" + "8092";
-
-        File tls_cert = new File("tlscert/backupServer.crt");
         try{
-
-            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
-        
-            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
 
             MainBackupServer.deleteUserRequest request = MainBackupServer.deleteUserRequest.newBuilder().setUserName(userName).build();
             MainBackupServer.deleteUserResponse response = stub.deleteUser(request);
         }
-        catch(SSLException e){
+        catch(StatusRuntimeException e){
+            if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){
+                System.out.println("Ransmomware attack detected in Backup.");
+			    clientActive = false;
+                return;
+			}
             System.out.println(e);
         }
     }

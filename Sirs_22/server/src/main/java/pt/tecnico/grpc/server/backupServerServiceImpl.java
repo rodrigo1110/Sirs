@@ -3,6 +3,7 @@ package pt.tecnico.grpc.server;
 import pt.tecnico.grpc.MainBackupServer;
 import pt.tecnico.grpc.MainBackupServerServiceGrpc;
 import pt.tecnico.grpc.server.backupServer;
+import pt.tecnico.grpc.server.exceptions.BackupRansomwareAttackException;
 
 import static io.grpc.Status.*;
 
@@ -33,32 +34,18 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 				.setGreeting(server.greet(request.getName()) + Integer.toString(instanceNumber)).build();
 		responseObserver.onNext(response);
 		responseObserver.onCompleted();
-		//listeningServer.getServer().shutdown(); use later for killing backup server in case of ransomware attack on main or backup server
 	}
-
 
 
 	@Override
 	public void promote(MainBackupServer.promoteRequest request, StreamObserver<MainBackupServer.promoteResponse> responseObserver) {
 		try{
-			
-			//server.promote();
-			
 			MainBackupServer.promoteResponse response = MainBackupServer.promoteResponse.newBuilder().build();
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();
 
-			//listeningServer.getServer().shutdown(); //use later for killing backup server 
-			//listeningServer.createClient(instanceNumber, "localhost"); //use later for creating new client to new principal backup
-			//listeningServer.setOldServer(listeningServer.getServer());
-			listeningServer.createMainServer(); //use later for server promotion from principal backup to mainServer
-			
-		}
-		/*catch (StatusRuntimeException e){   //Do something about these exceptions later or just delete them because they don't alter system in any way
-		} catch (SSLException e){
-		}*/ catch (IOException ex){
-			System.err.println("IOException with message: " + ex.getMessage() + " and cause:" + ex.getCause());
-			System.exit(-1);
+			listeningServer.createMainServer(); //server promotion from backup to mainServer
+
 		} catch (Exception e){
 			System.out.println(e.getMessage());
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
@@ -76,6 +63,10 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();
 		}
+		catch (BackupRansomwareAttackException e){
+			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
+		}
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
 		}
@@ -91,6 +82,10 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 			MainBackupServer.writeUserResponse response = MainBackupServer.writeUserResponse.newBuilder().build();
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();
+		}
+		catch (BackupRansomwareAttackException e){
+			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
 		}
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
@@ -108,6 +103,10 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();
 		}
+		catch (BackupRansomwareAttackException e){
+			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
+		}
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
 		}
@@ -121,6 +120,10 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 			MainBackupServer.removePermissionResponse response = MainBackupServer.removePermissionResponse.newBuilder().build();
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();
+		}
+		catch (BackupRansomwareAttackException e){
+			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
 		}
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
@@ -136,6 +139,10 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();
 		}
+		catch (BackupRansomwareAttackException e){
+			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
+		}
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
 		}
@@ -149,6 +156,10 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 			MainBackupServer.updateFileResponse response = MainBackupServer.updateFileResponse.newBuilder().build();
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();
+		}
+		catch (BackupRansomwareAttackException e){
+			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
 		}
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
@@ -164,6 +175,10 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();
 		}
+		catch (BackupRansomwareAttackException e){
+			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
+		}
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
 		}
@@ -177,6 +192,10 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 			MainBackupServer.deleteUserResponse response = MainBackupServer.deleteUserResponse.newBuilder().build();
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();
+		}
+		catch (BackupRansomwareAttackException e){
+			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
 		}
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());

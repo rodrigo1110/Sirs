@@ -59,8 +59,11 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 		catch (RansomwareAttackException e){
 			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
 			listeningServer.getServer().shutdown(); 
-			if(listeningServer.getClientActive())
-				listeningServer.getChannel().shutdown();	
+			listeningServer.getChannel().shutdown();	
+		}
+		catch (FullRansomwareAttackException e){
+			responseObserver.onError(UNAVAILABLE.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
 			System.exit(0);
 			
 		}
@@ -82,9 +85,13 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 		catch (RansomwareAttackException e){
 			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
 			listeningServer.getServer().shutdown(); 
-			if(listeningServer.getClientActive())
-				listeningServer.getChannel().shutdown();	
+			listeningServer.getChannel().shutdown();	
+		}
+		catch (FullRansomwareAttackException e){
+			responseObserver.onError(UNAVAILABLE.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
 			System.exit(0);
+			
 		}
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
@@ -104,9 +111,13 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 		catch (RansomwareAttackException e){
 			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
 			listeningServer.getServer().shutdown(); 
-			if(listeningServer.getClientActive())
-				listeningServer.getChannel().shutdown();	
+			listeningServer.getChannel().shutdown();	
+		}
+		catch (FullRansomwareAttackException e){
+			responseObserver.onError(UNAVAILABLE.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
 			System.exit(0);
+			
 		}
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
@@ -123,13 +134,6 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();	
 		}
-		/*catch (RansomwareAttackException e){
-			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
-			listeningServer.getServer().shutdown(); 
-			if(listeningServer.getClientActive())
-				listeningServer.getChannel().shutdown();	
-			System.exit(0);
-		}*/
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
 		}
@@ -149,9 +153,13 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 		catch (RansomwareAttackException e){
 			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
 			listeningServer.getServer().shutdown(); 
-			if(listeningServer.getClientActive())
-				listeningServer.getChannel().shutdown();	
+			listeningServer.getChannel().shutdown();	
+		}
+		catch (FullRansomwareAttackException e){
+			responseObserver.onError(UNAVAILABLE.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
 			System.exit(0);
+			
 		}
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
@@ -171,9 +179,13 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 		catch (RansomwareAttackException e){
 			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
 			listeningServer.getServer().shutdown(); 
-			if(listeningServer.getClientActive())
-				listeningServer.getChannel().shutdown();	
+			listeningServer.getChannel().shutdown();	
+		}
+		catch (FullRansomwareAttackException e){
+			responseObserver.onError(UNAVAILABLE.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
 			System.exit(0);
+			
 		}
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
@@ -192,8 +204,11 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 		catch (RansomwareAttackException e){
 			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
 			listeningServer.getServer().shutdown(); 
-			if(listeningServer.getClientActive())
-				listeningServer.getChannel().shutdown();	
+			listeningServer.getChannel().shutdown();	
+		}
+		catch (FullRansomwareAttackException e){
+			responseObserver.onError(UNAVAILABLE.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
 			System.exit(0);
 		}
 		catch (Exception e){
@@ -212,13 +227,6 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 			responseObserver.onNext(response); 
 			responseObserver.onCompleted();	
 		}
-		/*catch (RansomwareAttackException e){
-			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
-			listeningServer.getServer().shutdown(); 
-			if(listeningServer.getClientActive())
-				listeningServer.getChannel().shutdown();	
-			System.exit(0);
-		}*/
 		catch (Exception e){
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
 		}
@@ -237,8 +245,11 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 		catch (RansomwareAttackException e){
 			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
 			listeningServer.getServer().shutdown(); 
-			if(listeningServer.getClientActive())
-				listeningServer.getChannel().shutdown();	
+			listeningServer.getChannel().shutdown();	
+		}
+		catch (FullRansomwareAttackException e){
+			responseObserver.onError(UNAVAILABLE.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
 			System.exit(0);
 		}
 		catch (Exception e){
@@ -259,8 +270,11 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 		catch (RansomwareAttackException e){
 			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
 			listeningServer.getServer().shutdown(); 
-			if(listeningServer.getClientActive())
-				listeningServer.getChannel().shutdown();	
+			listeningServer.getChannel().shutdown();	
+		}
+		catch (FullRansomwareAttackException e){
+			responseObserver.onError(UNAVAILABLE.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
 			System.exit(0);
 		}
 		catch (Exception e){
@@ -280,8 +294,11 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 		catch (RansomwareAttackException e){
 			responseObserver.onError(DATA_LOSS.withDescription(e.getMessage()).asRuntimeException());
 			listeningServer.getServer().shutdown(); 
-			if(listeningServer.getClientActive())
-				listeningServer.getChannel().shutdown();	
+			listeningServer.getChannel().shutdown();	
+		}
+		catch (FullRansomwareAttackException e){
+			responseObserver.onError(UNAVAILABLE.withDescription(e.getMessage()).asRuntimeException());
+			listeningServer.getServer().shutdown(); 
 			System.exit(0);
 		}
 		catch (Exception e){
