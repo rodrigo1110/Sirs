@@ -592,6 +592,10 @@ public class UserImpl {
         System.out.println(listOfUsers.toString());
         System.out.println(listOfUsers.size());
 
+        if(listOfUsers.size() == 0){
+            System.out.println("You must insert at least one user to share this file with.");
+            return;
+        }
 
         //-------------File Obtained from Uploads Directory
         
