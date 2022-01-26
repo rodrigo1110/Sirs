@@ -46,7 +46,15 @@ public class databaseAccess {
 
             stmt.executeUpdate(sql);
 
-            System.out.println("Created table users in database...");   	  
+            System.out.println("Created table users in database..."); 
+            
+            /////////
+
+            sql = "ALTER TABLE users CHANGE COLUMN username username VARCHAR(45) CHARACTER SET latin1 COLLATE latin1_general_cs NOT NULL";
+            stmt.executeUpdate(sql);
+            System.out.println("Table users altered...");   
+
+            /////////	  
              
 
              //para criar table files --- se isto resultar, verificar se existe, se nao, criar
@@ -59,7 +67,15 @@ public class databaseAccess {
 
             stmt.executeUpdate(sql);
 
-            System.out.println("Created table files in database...");   	  
+            System.out.println("Created table files in database...");   	
+            
+            /////////
+
+            sql = "ALTER TABLE files CHANGE COLUMN filename filename VARCHAR(45) CHARACTER SET latin1 COLLATE latin1_general_cs NOT NULL";
+            stmt.executeUpdate(sql);
+            System.out.println("Table files altered...");   
+
+            /////////	
             
 
             // para criar table permissions --- se isto resultar, verificar se existe, se nao, criar
@@ -73,7 +89,19 @@ public class databaseAccess {
 
             stmt.executeUpdate(sql);
 
-            System.out.println("Created table permissions in database...");    	  
+            System.out.println("Created table permissions in database...");    	 
+            
+            /////////
+
+            sql = "ALTER TABLE permissions CHANGE COLUMN filename filename VARCHAR(45) CHARACTER SET latin1 COLLATE latin1_general_cs NOT NULL";
+            stmt.executeUpdate(sql);
+            System.out.println("Table permissions altered...");   
+
+            sql = "ALTER TABLE permissions CHANGE COLUMN username username VARCHAR(45) CHARACTER SET latin1 COLLATE latin1_general_cs NOT NULL";
+            stmt.executeUpdate(sql);
+            System.out.println("Table permissions altered...");   
+
+            /////////
             
 
             ResultSet rs = stmt.executeQuery("select * from users");

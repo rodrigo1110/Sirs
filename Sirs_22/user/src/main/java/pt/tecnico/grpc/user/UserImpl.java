@@ -106,51 +106,28 @@ public class UserImpl {
         KeyPair pair = keyGen.generateKeyPair();
         Key privateKey1 = pair.getPrivate();
         Key publicKey1 = pair.getPublic();
-        //prints para retirar mais tarde
-        //System.out.println("Chave Publica: " + publicKey);
-        //System.out.println("Chave privada: " + privateKey);
 
-        DataOutputStream dos = null; 
-            try {
-                //se der erro, temos de usar funcao que se ja existir ficheiro com este nome, nao cria um novo (a verificacao do user name so e feita depis na bd do lado do server)
-                String path = "publicKey/" + username + "-PublicKey";
-                dos = new DataOutputStream(new FileOutputStream(path));
-                dos.write(publicKey1.getEncoded());
-                dos.flush();
-            } catch (Exception e) {
-                System.out.println("File already exists");
-                throw new RuntimeException(e);
-            } finally {
-                if (dos != null) {
-                    try {
-                        dos.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-            
-            try { 
-                //se der erro, temos de usar funcao que se ja existir ficheiro com este nome, nao cria um novo (a verificacao do user name so e feita depis na bd do lado do server)
-                String path = "privateKey/" + username + "-PrivateKey";
-                dos = new DataOutputStream(new FileOutputStream(path));
-                dos.write(privateKey1.getEncoded());
-                dos.flush();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            } finally {
-                if (dos != null)
-                    try {
-                        dos.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-            }
-            //prints para retirar mais tarde
-            /*String path = "publicKey/" + username + "-PublicKey";
-            String path2 = "privateKey/" + username + "-PrivateKey";
-            System.out.println("Public key gerada: " + getPublicKey(path));
-            System.out.println("Private key gerada: " + getPrivateKey(path2));*/
+        File file = null;
+        file = new File("publicKey/" + username + "-PublicKey");
+        if (file.createNewFile()) {
+            System.out.println("New file created: " + file.getName());
+            OutputStream os = new FileOutputStream(file);
+            os.write(publicKey1.getEncoded());
+            os.close();
+            System.out.println("Successful Download! You can find your downloaded file in your downloads directory.");
+        } 
+        else{
+            System.out.println("Test: existent file.");
+        }
+
+        file = new File("privateKey/" + username + "-PrivateKey");
+        if (file.createNewFile()) {
+            System.out.println("New file created: " + file.getName());
+            OutputStream os = new FileOutputStream(file);
+            os.write(privateKey1.getEncoded());
+            os.close();
+            System.out.println("Successful Download! You can find your downloaded file in your downloads directory.");
+        } 
     }
 
 
