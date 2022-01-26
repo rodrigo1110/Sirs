@@ -38,19 +38,21 @@ public class backupServer {
     
 
 
-    public void writeFile(String fileName, ByteString fileContent, String fileOwner) throws Exception{
+    public void writeFile(String fileName, ByteString fileContent, String fileOwner, ByteString hash) throws Exception{
 
         String query = "INSERT INTO files ("
         + " filename,"
         + " filecontent,"
-        + " fileowner ) VALUES ("
-        + "?, ?, ?)";
+        + " fileowner,"
+        + " hash ) VALUES ("
+        + "?, ?, ?, ?)";
 
         try {
             PreparedStatement st = connection.prepareStatement(query);
             st.setString(1, fileName);
             st.setBytes(2, fileContent.toByteArray());
             st.setString(3, fileOwner);
+            st.setBytes(4, hash.toByteArray());
 
             st.executeUpdate();
             st.close();
@@ -62,22 +64,43 @@ public class backupServer {
 
    
 
-    public void updateCookie(String userName, String cookie){
+    public void updateCookie(String userName, String cookie, ByteString hash){
         System.out.println(userName);
         System.out.println(cookie);
 
-        String query = "UPDATE users SET cookie=? WHERE username=?";
+        String query = "UPDATE users SET cookie=?, hash=? WHERE username=?";
                 
         try {
             PreparedStatement st = connection.prepareStatement(query);
             st.setString(1, cookie);
-            st.setString(2, userName);
+            st.setBytes(2, hash.toByteArray());
+            st.setString(3, userName);
         
             st.executeUpdate();
             st.close();
         }
         catch(SQLException e){
               System.out.println("Couldn't update cookie" + e);
+        }
+    }
+
+    public void updateFile(String fileName, ByteString fileContent, ByteString hash){
+
+        String query = "UPDATE files SET filecontent=?, hash=? WHERE filename=?"; 
+
+        try {
+            PreparedStatement st = connection.prepareStatement(query);
+            st.setBytes(1, fileContent.toByteArray());
+            st.setBytes(2, hash.toByteArray());
+            st.setString(3, fileName);
+        
+            st.executeUpdate();
+            st.close();
+
+            return;
+        } 
+        catch(SQLException e){
+            System.out.println("Couldn't update fileContent" + e);
         }
     }
 
@@ -175,7 +198,7 @@ public class backupServer {
         }
     }
 
-    public void writeUser(String userName, String hashPassword, ByteString salt){
+    public void writeUser(String userName, String hashPassword, ByteString salt, ByteString publicKey, ByteString hash){
         System.out.println(userName);
         System.out.println(hashPassword);
         System.out.println(salt.toStringUtf8());
@@ -183,14 +206,18 @@ public class backupServer {
         String query = "INSERT INTO users ("
         + " username,"
         + " password, "
-        + " salt ) VALUES ("
-        + "?, ?, ?)";
+        + " salt, "
+        + " publickey, "
+        + " hash ) VALUES ("
+        + "?, ?, ?, ?, ?)";
 
         try {
             PreparedStatement st = connection.prepareStatement(query);
             st.setString(1, userName);
             st.setString(2, hashPassword);
             st.setBytes(3, salt.toByteArray());
+            st.setBytes(4, publicKey.toByteArray());
+            st.setBytes(5, hash.toByteArray());
 
             st.executeUpdate();
             st.close();
@@ -199,21 +226,27 @@ public class backupServer {
           } 
     }
 
-    public void writePermission(String fileName, String userName) throws Exception{
+    public void writePermission(String fileName, String userName, ByteString symmetricKey, ByteString initializationVector, ByteString hash) throws Exception{
         System.out.println(userName);
         System.out.println(fileName);
 
 
         String query = "INSERT INTO permissions ("
         + " filename,"
-        + " username ) VALUES ("
-        + "?, ?)";
+        + " username,"
+        + " symmetrickey,"
+        + " initializationvector,"
+        + " hash ) VALUES ("
+        + "?, ?, ?, ?, ?)";
 
         try {
             PreparedStatement st = connection.prepareStatement(query);
             st.setString(1, fileName);
             st.setString(2, userName);
-        
+            st.setBytes(3, symmetricKey.toByteArray());
+            st.setBytes(4, initializationVector.toByteArray());
+            st.setBytes(5, hash.toByteArray());
+
             st.executeUpdate();
             st.close();
         } 

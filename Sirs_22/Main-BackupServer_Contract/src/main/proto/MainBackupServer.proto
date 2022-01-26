@@ -25,6 +25,8 @@ message writeUserRequest {
 	string username = 1;
 	string hashPassword = 2;
 	bytes salt = 3;
+	bytes publicKey = 4;
+	bytes hash = 5;
 }
 
 message writeUserResponse {
@@ -33,6 +35,9 @@ message writeUserResponse {
 message writePermissionRequest {
 	string fileName = 1;
 	string userName = 2;
+	bytes symmetricKey = 3;
+	bytes initializationVector = 4;
+	bytes hash = 5;
 }
 
 message writePermissionResponse {
@@ -41,6 +46,7 @@ message writePermissionResponse {
 message removePermissionRequest {
 	string fileName = 1;
 	string userName = 2;
+
 }
 
 message removePermissionResponse {
@@ -50,6 +56,7 @@ message writeFileRequest {
 	string fileName = 1;
 	bytes fileContent = 2;
 	string fileOwner = 3;
+	bytes hash = 4;
 }
 
 message writeFileResponse {
@@ -58,9 +65,19 @@ message writeFileResponse {
 message updateCookieRequest {
 	string userName = 1;
 	string cookie = 2;
+	bytes hash = 3;
 }
 
 message updateCookieResponse {
+}
+
+message updateFileRequest {
+	string fileName = 1;
+	bytes fileContent = 2;
+	bytes hash = 3;
+}
+
+message updateFileResponse {
 }
 
 message deleteFileRequest {
@@ -84,6 +101,7 @@ service MainBackupServerService {
 	rpc writePermission(writePermissionRequest) returns (writePermissionResponse);
 	rpc removePermission(removePermissionRequest) returns (removePermissionResponse);
 	rpc updateCookie(updateCookieRequest) returns (updateCookieResponse);
+	rpc updateFile(updateFileRequest) returns (updateFileResponse);
 	rpc deleteFile(deleteFileRequest) returns (deleteFileResponse);
 	rpc deleteUser(deleteUserRequest) returns (deleteUserResponse);
 }

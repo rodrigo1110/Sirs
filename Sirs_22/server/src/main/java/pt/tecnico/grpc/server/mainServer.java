@@ -646,7 +646,7 @@ public class mainServer {
                 st.executeUpdate();
                 st.close();
 
-                sendUserToBackUp(username, hashString(password, salt), salt);
+                sendUserToBackUp(username, hashString(password, salt), salt, ByteString.copyFrom(publickeyClient.toByteArray()), ByteString.copyFrom(encryptedHashUser));
             }
 
         } catch(SQLException e){
@@ -823,7 +823,7 @@ public class mainServer {
                                 throw new FailedOperationException();
                             }
 
-                            updateCookieBackUp(username, hashString(cookie, new byte[0]));
+                            updateCookieBackUp(username, hashString(cookie, new byte[0]), ByteString.copyFrom(hashUserEncrypted));
 
 
                             
@@ -960,7 +960,28 @@ public class mainServer {
         return userName.length() <= 45 && userName.length() > 0 && password.length() <= 45 && password.length() > 0;
     }
 
+    public List<String> showFiles(String userName){
 
+        List<String> listOfFiles = new ArrayList<String>();
+        String query = "SELECT filename FROM permissions WHERE username=?";
+
+        try {
+            PreparedStatement st = connection.prepareStatement(query);
+            st.setString(1, userName);
+        
+            ResultSet rs = st.executeQuery();        
+
+            while (rs.next()) {      
+                String fileName = rs.getString(1);
+                listOfFiles.add(fileName);
+            }
+            return listOfFiles;
+        } 
+        catch(SQLException e){
+                System.out.println(e);
+        }
+        return null;
+    }
     
     public void logout(ByteString cookie_bytes, ByteString timeStamp, ByteString hashMessage) throws Exception{
         try{
@@ -1014,7 +1035,7 @@ public class mainServer {
                 throw new FailedOperationException();
             }
             
-            updateCookieBackUp(dbUserName, "");
+            updateCookieBackUp(dbUserName, "", ByteString.copyFrom(hashUserEncrypted));
         }
         catch(SQLException e){
             System.out.println(e);
@@ -1159,12 +1180,15 @@ public class mainServer {
                 
                     st.executeUpdate();
                     st.close();
-                    //sendFileToBackUp(fileID, file, dbUserName);
+
                     return;
-                } catch(SQLException e){
+                } 
+                catch(SQLException e){
                     System.out.println("Couldn't update fileContent" + e);
-                    throw new FailedOperationException();
+                    //throw new FailedOperationException(); tive de comentar -> unreachable code
                 }
+                updateFileBackUp(fileID, file, ByteString.copyFrom(hashFileEncrypted));
+
             } 
             if(checkIfFileExists(fileID) && !checkIfUserAlreadyHasPermission(fileID, dbUserName))
                 throw new DuplicateFileException(fileID);
@@ -1198,7 +1222,7 @@ public class mainServer {
                 throw new FailedOperationException();
             }
 
-            //sendFileToBackUp(fileID, file, dbUserName); 
+            sendFileToBackUp(fileID, file, dbUserName, ByteString.copyFrom(hashFileEncrypted)); 
             // add owner to permissions table
 
             String hashPermission = createPermissionHashDb(fileID, dbUserName, symmetricKey.toByteArray(),initializationVector.toByteArray());
@@ -1231,7 +1255,8 @@ public class mainServer {
 
             }
 
-            sendPermissionToBackUp(fileID, dbUserName);
+            sendPermissionToBackUp(fileID, dbUserName, ByteString.copyFrom(symmetricKey.toByteArray()), 
+            ByteString.copyFrom(initializationVector.toByteArray()), ByteString.copyFrom(hashPermissionEncrypted));
         }
         catch(SQLException e){
             System.out.println(e);
@@ -1513,7 +1538,7 @@ public class mainServer {
         int i = 0;
         if(checkIfFileExists(fileID)){
             if(checkFileOwner(fileID, dbUserName)){
-                for (String userName : userNameList) {
+                for (String userName : userNameList) { 
                     if(checkIfUserExists(userName)){
                         if(!checkIfUserAlreadyHasPermission(fileID, userName)){
                             
@@ -1540,11 +1565,15 @@ public class mainServer {
                                
                                 st.executeUpdate();
                                 st.close();
-                            } catch(SQLException e){
+                            } 
+                            catch(SQLException e){
                                     System.out.println("?????" + e);
                                     throw new FailedOperationException();
                             }
-                           
+
+                            sendPermissionToBackUp(fileID, userName, ByteString.copyFrom(encryptedSymmetricKey),
+                             ByteString.copyFrom(initializationVector), ByteString.copyFrom(hashPermissionEncrypted));
+                            
                         }
                         else
                             throw new UserAlreadyHasAccessException(userName);
@@ -1559,8 +1588,6 @@ public class mainServer {
         else
             throw new FileUnknownException(fileID);  
         System.out.println("File shared correctly."); 
-
-        //sendPermissionToBackUp(fileID, userName);
     }
 
     
@@ -1626,6 +1653,7 @@ public class mainServer {
                                         System.out.println("?????" + e);
                                         throw new FailedOperationException();
                                 }
+                                removePermissionFromBackUp(fileID, userName);
                             }
                             else
                                 throw new UserAlreadyHasAccessException(userName);
@@ -1888,7 +1916,7 @@ public class mainServer {
 
 
 
-    public void sendUserToBackUp(String username, String hashPassword, byte[] salt){
+    public void sendUserToBackUp(String username, String hashPassword, byte[] salt, ByteString publicKey, ByteString hash){
 
         final String target = "localhost" + ":" + "8092";
 
@@ -1901,7 +1929,9 @@ public class mainServer {
         
             stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
 
-            MainBackupServer.writeUserRequest request = MainBackupServer.writeUserRequest.newBuilder().setUsername(username).setHashPassword(hashPassword).setSalt(saltByteString).build();
+            MainBackupServer.writeUserRequest request = MainBackupServer.writeUserRequest.newBuilder().setUsername(username).
+            setHashPassword(hashPassword).setSalt(saltByteString).
+            setPublicKey(publicKey).setHash(hash).build();
             MainBackupServer.writeUserResponse response = stub.writeUser(request);
         }
         catch(SSLException e){
@@ -1910,7 +1940,7 @@ public class mainServer {
     }
 
 
-    public void sendPermissionToBackUp(String fileName, String userName){
+    public void sendPermissionToBackUp(String fileName, String userName, ByteString symmetricKey, ByteString initializationVector, ByteString hash){
 
         final String target = "localhost" + ":" + "8092";
 
@@ -1922,7 +1952,9 @@ public class mainServer {
         
             stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
 
-            MainBackupServer.writePermissionRequest request = MainBackupServer.writePermissionRequest.newBuilder().setFileName(fileName).setUserName(userName).build();
+            MainBackupServer.writePermissionRequest request = MainBackupServer.writePermissionRequest.newBuilder().setFileName(fileName).
+            setUserName(userName).setSymmetricKey(symmetricKey).setInitializationVector(initializationVector).
+            setHash(hash).build();
             MainBackupServer.writePermissionResponse response = stub.writePermission(request);
         }
         catch(SSLException e){
@@ -1950,7 +1982,7 @@ public class mainServer {
         }
     }
 
-    public void sendFileToBackUp(String filename, ByteString filecontent,  String fileowner){
+    public void sendFileToBackUp(String filename, ByteString filecontent,  String fileowner, ByteString hash){
 
         final String target = "localhost" + ":" + "8092";
 
@@ -1962,7 +1994,8 @@ public class mainServer {
         
             stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
 
-            MainBackupServer.writeFileRequest request = MainBackupServer.writeFileRequest.newBuilder().setFileName(filename).setFileContent(filecontent).setFileOwner(fileowner).build();
+            MainBackupServer.writeFileRequest request = MainBackupServer.writeFileRequest.newBuilder().setFileName(filename).
+            setFileContent(filecontent).setFileOwner(fileowner).setHash(hash).build();
             MainBackupServer.writeFileResponse response = stub.writeFile(request);
         }
         catch(SSLException e){
@@ -1970,7 +2003,7 @@ public class mainServer {
         }
     }
     
-    public void updateCookieBackUp(String userName, String cookie){
+    public void updateCookieBackUp(String userName, String cookie, ByteString hash){
  
         final String target = "localhost" + ":" + "8092";
 
@@ -1982,8 +2015,30 @@ public class mainServer {
         
             stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
 
-            MainBackupServer.updateCookieRequest request = MainBackupServer.updateCookieRequest.newBuilder().setUserName(userName).setCookie(cookie).build();
+            MainBackupServer.updateCookieRequest request = MainBackupServer.updateCookieRequest.newBuilder().
+            setUserName(userName).setCookie(cookie).setHash(hash).build();
             MainBackupServer.updateCookieResponse response = stub.updateCookie(request);
+        }
+        catch(SSLException e){
+            System.out.println(e);
+        }
+    }
+
+    public void updateFileBackUp(String fileName, ByteString fileContent, ByteString hash){
+ 
+        final String target = "localhost" + ":" + "8092";
+
+
+        File tls_cert = new File("tlscert/backupServer.crt");
+        try{
+
+            channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+        
+            stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
+
+            MainBackupServer.updateFileRequest request = MainBackupServer.updateFileRequest.newBuilder().
+            setFileName(fileName).setFileContent(fileContent).setHash(hash).build();
+            MainBackupServer.updateFileResponse response = stub.updateFile(request);
         }
         catch(SSLException e){
             System.out.println(e);

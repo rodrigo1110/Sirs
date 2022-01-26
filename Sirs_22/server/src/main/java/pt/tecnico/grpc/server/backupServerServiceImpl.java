@@ -69,7 +69,8 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 	@Override
 	public void writeFile(MainBackupServer.writeFileRequest request, StreamObserver<MainBackupServer.writeFileResponse> responseObserver) {
 		try{
-			server.writeFile(request.getFileName(), request.getFileContent(), request.getFileOwner());
+			server.writeFile(request.getFileName(), request.getFileContent(), request.getFileOwner(),
+			request.getHash());
 
 			MainBackupServer.writeFileResponse response = MainBackupServer.writeFileResponse.newBuilder().build();
 			responseObserver.onNext(response);
@@ -84,7 +85,8 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 	@Override
 	public void writeUser(MainBackupServer.writeUserRequest request, StreamObserver<MainBackupServer.writeUserResponse> responseObserver) {
 		try{
-			server.writeUser(request.getUsername(),request.getHashPassword(),request.getSalt());
+			server.writeUser(request.getUsername(),request.getHashPassword(),request.getSalt(),
+			request.getPublicKey(), request.getHash());
 
 			MainBackupServer.writeUserResponse response = MainBackupServer.writeUserResponse.newBuilder().build();
 			responseObserver.onNext(response);
@@ -99,7 +101,8 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 	@Override
 	public void writePermission(MainBackupServer.writePermissionRequest request, StreamObserver<MainBackupServer.writePermissionResponse> responseObserver) {
 		try{
-			server.writePermission(request.getFileName(),request.getUserName());
+			server.writePermission(request.getFileName(), request.getUserName(), request.getSymmetricKey(),
+			request.getInitializationVector(), request.getHash());
 
 			MainBackupServer.writePermissionResponse response = MainBackupServer.writePermissionResponse.newBuilder().build();
 			responseObserver.onNext(response);
@@ -127,9 +130,23 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 	@Override
 	public void updateCookie(MainBackupServer.updateCookieRequest request, StreamObserver<MainBackupServer.updateCookieResponse> responseObserver) {
 		try{
-			server.updateCookie(request.getUserName(), request.getCookie());
+			server.updateCookie(request.getUserName(), request.getCookie(), request.getHash());
 
 			MainBackupServer.updateCookieResponse response = MainBackupServer.updateCookieResponse.newBuilder().build();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
+	}
+
+	@Override
+	public void updateFile(MainBackupServer.updateFileRequest request, StreamObserver<MainBackupServer.updateFileResponse> responseObserver) {
+		try{
+			server.updateFile(request.getFilename(), request.getFileContent(), request.getHash());
+
+			MainBackupServer.updateFileResponse response = MainBackupServer.updateFileResponse.newBuilder().build();
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();
 		}

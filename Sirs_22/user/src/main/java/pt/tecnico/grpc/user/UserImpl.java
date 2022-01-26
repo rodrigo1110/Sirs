@@ -466,6 +466,7 @@ public class UserImpl {
         System.out.println("------------------------------");
         System.out.print("Please, enter your username: ");
         String userName = System.console().readLine();
+        username = userName;
         System.out.println("You entered the username " + userName);
         System.out.println("------------------------------");
 
@@ -950,7 +951,22 @@ public class UserImpl {
         return response;
     }
 
+    public void showFiles() throws Exception{
 
+        UserMainServer.showFilesRequest request = UserMainServer.showFilesRequest.newBuilder().
+                setUserName(this.username).build();
+
+        UserMainServer.showFilesResponse response = stub.showFiles(request);
+
+        List<String> listOfFiles = response.getFileNameList();
+
+        System.out.println("This are the files you have permission to download: ");
+
+        for(int i = 0; i < listOfFiles.size(); i++){
+            System.out.print("- ");
+            System.out.println(listOfFiles.get(i));
+        }
+    }
 
     
     public void upload() throws Exception{

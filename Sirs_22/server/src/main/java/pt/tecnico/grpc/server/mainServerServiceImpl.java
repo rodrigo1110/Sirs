@@ -33,6 +33,18 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 		//listeningServer.getChannel().shutdown();//  use later for killing main server's client channel in case of ransomware attack
 	}
 
+	@Override
+	public void showFiles(UserMainServer.showFilesRequest request, StreamObserver<UserMainServer.showFilesResponse> responseObserver) {
+		System.out.println(request);
+
+		UserMainServer.showFilesResponse response = UserMainServer.showFilesResponse.newBuilder().addAllFileName(server.showFiles(request.getUserName()))
+				.build();
+		responseObserver.onNext(response);
+		responseObserver.onCompleted();
+		//listeningServer.getServer().shutdown(); //use later for killing main server in case of ransomware attack
+		//listeningServer.getChannel().shutdown();//  use later for killing main server's client channel in case of ransomware attack
+	}
+
 
 	@Override 
 	public void signUp(UserMainServer.signUpRequest request, StreamObserver<UserMainServer.signUpResponse> responseObserver){

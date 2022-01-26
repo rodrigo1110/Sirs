@@ -109,6 +109,9 @@ public class User {
 						case "logout":
 							user.logout();
 							break;
+						case "showFiles":
+							user.showFiles();
+							break;
 						case "download":
 							user.download();
 							break;
@@ -130,6 +133,7 @@ public class User {
 						case "help":
 							System.out.printf("Avaliable operations:\n");
 							System.out.printf(" - logout\n");
+							System.out.printf(" - showFiles\n");
 							System.out.printf(" - download\n");
 							System.out.printf(" - upload\n"); 
 							System.out.printf(" - share\n"); 

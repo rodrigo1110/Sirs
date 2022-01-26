@@ -26,6 +26,14 @@ message uploadRequest{
 message uploadResponse{
 }
 
+message showFilesRequest{
+	string userName = 1;
+}
+
+message showFilesResponse{
+	repeated string fileName = 1;
+}
+
 message isUpdateRequest{
 	string fileId = 1;
 	bytes cookie = 2;
@@ -160,4 +168,5 @@ service UserMainServerService {
 	rpc unshare(unshareRequest) returns (unshareResponse);
 	rpc deleteUser(deleteUserRequest) returns (deleteUserResponse);
 	rpc deleteFile(deleteFileRequest) returns (deleteFileResponse);
+	rpc showFiles(showFilesRequest) returns (showFilesResponse);
 }
