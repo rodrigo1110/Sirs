@@ -114,10 +114,10 @@ public class UserImpl {
             OutputStream os = new FileOutputStream(file);
             os.write(publicKey1.getEncoded());
             os.close();
-            System.out.println("Successful Download! You can find your downloaded file in your downloads directory.");
         } 
         else{
             System.out.println("Test: existent file.");
+            return;
         }
 
         file = new File("privateKey/" + username + "-PrivateKey");
@@ -126,8 +126,11 @@ public class UserImpl {
             OutputStream os = new FileOutputStream(file);
             os.write(privateKey1.getEncoded());
             os.close();
-            System.out.println("Successful Download! You can find your downloaded file in your downloads directory.");
         } 
+        else{
+            System.out.println("Test: existent file.");
+            return;
+        }
     }
 
 
@@ -566,6 +569,7 @@ public class UserImpl {
         System.out.println("------------------------------");
         System.out.print("Please, enter the name of the file you want to share: ");
         String fileName = System.console().readLine();
+        fileName = fileName.concat(".txt");
         System.out.println("You entered the file " + fileName);
         System.out.println("------------------------------");
 
@@ -717,6 +721,7 @@ public class UserImpl {
         System.out.println("------------------------------");
         System.out.print("Please, enter the name of the file you want to unshare: ");
         String fileName = System.console().readLine();
+        fileName = fileName.concat(".txt");
         System.out.println("You entered the file " + fileName);
         System.out.println("------------------------------");
 
@@ -811,6 +816,7 @@ public class UserImpl {
         System.out.println("------------------------------");
         System.out.print("Please, enter the name of the file you want to download: ");
         String fileName = System.console().readLine();
+        fileName = fileName.concat(".txt");
         System.out.println("You entered the file " + fileName);
         System.out.println("------------------------------");
 
@@ -936,6 +942,7 @@ public class UserImpl {
         System.out.println("------------------------------");
         System.out.print("Please, enter the name of the file you want to upload: ");
         String fileName = System.console().readLine();
+        fileName = fileName.concat(".txt");
         System.out.println("You entered the file " + fileName);
         System.out.println("------------------------------");
 
