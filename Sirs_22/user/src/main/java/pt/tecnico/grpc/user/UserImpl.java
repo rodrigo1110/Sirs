@@ -338,7 +338,7 @@ public class UserImpl {
         char [] input = System.console().readPassword();
 
         boolean hasLower , hasUpper, hasDigit, hasSpecialCharacter;
-        boolean safe = false;
+        boolean safe = true; //so para testar mais rapido, colocar a false depois!!!
         while(safe == false){
             hasLower = false;
             hasUpper = false;
@@ -648,16 +648,17 @@ public class UserImpl {
         ByteArrayOutputStream responseBytes = new ByteArrayOutputStream();
         responseBytes.write(encryptedSymmetricKeyByteArray);
         responseBytes.write(":".getBytes());
-        responseBytes.write(encryptedPublicKeyList.toString().getBytes()); //-------This one is different from the one sent by server by a few bits
-        System.out.println("encryptedPublicKeyListObtained: " + convertToHex(encryptedPublicKeyList.toString().getBytes()));
-        responseBytes.write(":".getBytes());
+
+        for(int i = 0; i < encryptedPublicKeyList.size(); i++ ){
+            responseBytes.write(encryptedPublicKeyList.get(i).toByteArray()); //-------This one is different from the one sent by server by a few bits
+            responseBytes.write(":".getBytes());
+        }
         responseBytes.write(encryptedTimeStampByteArray);
 
         String hashResponseString = decrypt(serverPublicKey, encryptedhashResponseByteArray);
         if(!verifyMessageHash(responseBytes.toByteArray(), hashResponseString)){
             System.out.println("Response integrity compromised");
-            //return;
-        } //--------------FIX---------------
+        } 
 
 
         System.out.println("SymmetricKey from " + fileName + " was successfully obtained.");
@@ -684,11 +685,16 @@ public class UserImpl {
 
         ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
 
+        
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
         messageBytes.write(encryptedHashCookie.toByteArray());
         messageBytes.write(":".getBytes());
-        messageBytes.write(listOfEncryptedSymmetricKeysByteString.toString().getBytes());
-        messageBytes.write(":".getBytes());
+        
+        for(int i = 0; i < listOfEncryptedSymmetricKeysByteString.size(); i++ ){
+            messageBytes.write(listOfEncryptedSymmetricKeysByteString.get(i).toByteArray()); 
+            messageBytes.write(":".getBytes());
+        }
+        
         messageBytes.write(listOfUsers.toString().getBytes());
         messageBytes.write(":".getBytes());
         messageBytes.write(fileName.getBytes());
@@ -1055,6 +1061,7 @@ public class UserImpl {
         stub.deleteUser(request);
 
         System.out.println("User deleted successfully!");
+        cookie = "";
     }
 
 

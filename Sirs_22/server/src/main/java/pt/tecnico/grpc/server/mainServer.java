@@ -26,7 +26,6 @@ import javax.lang.model.util.ElementScanner6;
 import javax.net.ssl.SSLException;
 import javax.sound.sampled.AudioFormat.Encoding;
 
-import java.nio.file.Paths;
 import java.nio.file.*;
 import java.security.*;
 import java.security.spec.*;
@@ -265,6 +264,7 @@ public class mainServer {
     }
 
 
+
     public String createUserHashDb(String username, String hashPassword, String hashCookie, 
         byte[] salt, byte[] encryptedPublicKey) throws Exception{
 
@@ -314,6 +314,104 @@ public class mainServer {
         return hashString(new String(message), new byte[0]);
     }
 
+
+    public void verifyUsersTableStateDB() throws Exception{
+        
+        String query = "SELECT username, password, cookie, salt, publickey, hash FROM users";
+        
+        try{
+            PreparedStatement st = connection.prepareStatement(query);
+        
+            ResultSet rs = st.executeQuery();        
+
+            while(rs.next()) {                       
+                String userName = rs.getString(1);
+                String password = rs.getString(2);        
+                String cookie = rs.getString(3);        
+                byte[] salt = rs.getBytes(4);        
+                byte[] publicKeyDB = rs.getBytes(5);        
+                byte[] encryptedHashLineDB = rs.getBytes(6);      
+
+                System.out.println("userName: " + userName);  
+                System.out.println("password: " + password);  
+                System.out.println("cookie: " + cookie);  
+                System.out.println("salt: " + convertToHex(salt));  
+                System.out.println("publicKeyDB: " + convertToHex(publicKeyDB));  
+                System.out.println("encryptedHashLineDB: " + convertToHex(encryptedHashLineDB));  
+
+                if(cookie == null)
+                    cookie = "";
+                String hashLineDB = decrypt(publicKey, encryptedHashLineDB);
+                String hashLine = createUserHashDb(userName, password, cookie, salt, publicKeyDB);
+                
+                if(hashLineDB.compareTo(hashLine) != 0){
+                    System.out.println("SOL SOL SOL");
+                    throw new RansomwareAttackException();
+                }            
+            }
+        } 
+        catch(SQLException e){
+            System.out.println(e.toString());
+        }
+    }
+
+    
+    public void verifyFilesTableStateDB() throws Exception{
+        
+        String query = "SELECT filename, filecontent, fileowner, hash FROM files";
+        
+        try{
+            PreparedStatement st = connection.prepareStatement(query);
+        
+            ResultSet rs = st.executeQuery();        
+
+            while(rs.next()) {                       
+                String fileName = rs.getString(1);
+                byte[] fileContent = rs.getBytes(2);        
+                String fileOwner = rs.getString(3);        
+                byte[] encryptedHashLineDB = rs.getBytes(4);             
+                
+                String hashLineDB = decrypt(publicKey, encryptedHashLineDB);
+                String hashLine = createFileHashDb(fileName, fileContent, fileOwner);
+                
+                if(hashLineDB.compareTo(hashLine) != 0){
+                    throw new RansomwareAttackException();
+                }            
+            }
+        } 
+        catch(SQLException e){
+            System.out.println(e.toString());
+        }
+    }
+
+    
+    public void verifyPermissionsTableStateDB() throws Exception{
+        String query = "SELECT filename, username, symmetrickey, initializationvector, hash FROM permissions";
+        
+        try{
+            PreparedStatement st = connection.prepareStatement(query);
+        
+            ResultSet rs = st.executeQuery();        
+
+            while(rs.next()) {                       
+                String fileName = rs.getString(1);
+                String userName = rs.getString(2);     
+                byte[] encryptedSymmetricKey = rs.getBytes(3);        
+                byte[] encryptedInitializationVector = rs.getBytes(4);         
+                byte[] encryptedHashLineDB = rs.getBytes(5);
+      
+                String hashLineDB = decrypt(publicKey, encryptedHashLineDB);
+                String hashLine = createPermissionHashDb(fileName, userName, encryptedSymmetricKey, encryptedInitializationVector);
+                
+                if(hashLineDB.compareTo(hashLine) != 0){
+                    throw new RansomwareAttackException();
+                }            
+            }
+        } 
+        catch(SQLException e){
+            System.out.println(e.toString());
+        }
+    }
 
 
 
@@ -483,6 +581,7 @@ public class mainServer {
 
         System.out.println("HERE HERE HERE!");
 
+        verifyUsersTableStateDB(); //verify state of users table in db 
         
         String query = "SELECT username FROM users WHERE username=?";  //Chech if username exists
 
@@ -571,6 +670,7 @@ public class mainServer {
             hasKeys = true;
         }
         
+        verifyUsersTableStateDB(); 
 
         String query = "SELECT publickey FROM users WHERE username=?";  // Get user public key
         try{
@@ -608,13 +708,13 @@ public class mainServer {
         messageBytes.write(password_bytes.toByteArray());
         messageBytes.write(":".getBytes());
         messageBytes.write(timeStamp.toByteArray());
-        //esta publicKey (do cliente) tem de ir ser retirada da bd!!!!!
+
         String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
         if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
             throw new MessageIntegrityException();
         }
 
-
+        
         String password = decrypt(privateKey, password_bytes.toByteArray());
 
             //check if user is registered
@@ -690,7 +790,7 @@ public class mainServer {
                                 throw new FailedOperationException();
                             }
 
-                            String hashUser = createUserHashDb(username, hashPassword, cookieHash, salt, userPublicKeyByteArray);
+                            String hashUser = createUserHashDb(username, hashPassword, cookieHash, salt, userPublicKeyEncrypted);
                             byte[] hashUserEncrypted = encrypt(privateKey, hashUser.getBytes());
 
                             query = "UPDATE users SET hash=? WHERE username=?";   ///atualizar hash user
@@ -738,6 +838,7 @@ public class mainServer {
 
     public boolean checkIfUserExists(String userName){
         String query = "SELECT username FROM users WHERE username=?";
+        
         try{
             PreparedStatement st = connection.prepareStatement(query);
             st.setString(1, userName);
@@ -762,6 +863,7 @@ public class mainServer {
 
     public boolean checkIfFileExists(String fileName){
         String query = "SELECT filename FROM files WHERE filename=?";
+
         try{
             PreparedStatement st = connection.prepareStatement(query);
             st.setString(1, fileName);
@@ -786,6 +888,7 @@ public class mainServer {
 
     public boolean checkFileOwner(String fileName, String userName){
         String query = "SELECT fileowner FROM files WHERE filename=?";
+
         try{
             PreparedStatement st = connection.prepareStatement(query);
             st.setString(1, fileName);
@@ -814,6 +917,7 @@ public class mainServer {
     }
 
     public boolean checkIfUserAlreadyHasPermission(String fileName, String userName){
+        
         String query = "SELECT * FROM permissions WHERE filename=? AND username=?";
         try{
             PreparedStatement st = connection.prepareStatement(query);
@@ -844,6 +948,8 @@ public class mainServer {
     
     public void logout(ByteString cookie_bytes, ByteString timeStamp, ByteString hashMessage) throws Exception{
         try{
+            verifyUsersTableStateDB();
+            
             String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
             System.out.println("Decrypted hash of cookie: " + hashCookie);
             String dbUserName = correspondentUser(hashCookie);
@@ -873,15 +979,16 @@ public class mainServer {
             String hashPassword = getUserPasswordDB(dbUserName);
             byte[] salt = getUserSaltDB(dbUserName);
 
-            String hashUser = createUserHashDb(dbUserName, hashPassword, hashCookie, salt, userPublicKeyEncrypted);
+            String hashUser = createUserHashDb(dbUserName, hashPassword, "", salt, userPublicKeyEncrypted);
             byte[] hashUserEncrypted = encrypt(privateKey, hashUser.getBytes());
 
-            String query = "UPDATE users SET cookie=? WHERE username=?";
+            String query = "UPDATE users SET cookie=?, hash=? WHERE username=?";
                     
             try {
                 PreparedStatement st = connection.prepareStatement(query);
                 st.setString(1, "");
-                st.setString(2, dbUserName);
+                st.setBytes(2, hashUserEncrypted);
+                st.setString(3, dbUserName);
             
                 st.executeUpdate();
                 st.close();
@@ -983,6 +1090,8 @@ public class mainServer {
         ByteString initializationVector, ByteString timeStamp, ByteString hashMessage) throws Exception{
         
         try{
+            verifyUsersTableStateDB();
+            
             String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
             System.out.println("Decrypted hash of cookie: " + hashCookie);
             String dbUserName = correspondentUser(hashCookie);
@@ -1015,9 +1124,13 @@ public class mainServer {
             if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
                 throw new MessageIntegrityException();
             }
+
+
+            verifyPermissionsTableStateDB();
+            verifyFilesTableStateDB();
             
-            /*if(checkIfFileExists(fileID) && checkIfUserAlreadyHasPermission(fileID, dbUserName)){ //Future code for replacing file content (encryption with right
-                                                                                                    //symmetric key already guaranteed by isUpdate)                                                
+            
+            if(checkIfFileExists(fileID) && checkIfUserAlreadyHasPermission(fileID, dbUserName)){ //encryption with righ symmetric key guaranteed by isUpdate)                                                
                 String hashFile = createFileHashDb(fileID, file.toByteArray(), dbUserName);
                 byte[] hashFileEncrypted = encrypt(privateKey, hashFile.getBytes());
                 
@@ -1030,11 +1143,15 @@ public class mainServer {
                 
                     st.executeUpdate();
                     st.close();
+                    //sendFileToBackUp(fileID, file, dbUserName);
+                    return;
                 } catch(SQLException e){
-                    System.out.println("Couldn't update cookie" + e);
+                    System.out.println("Couldn't update fileContent" + e);
                     throw new FailedOperationException();
                 }
-            } */
+            } 
+            if(checkIfFileExists(fileID) && !checkIfUserAlreadyHasPermission(fileID, dbUserName))
+                throw new DuplicateFileException(fileID);
                 
             //createFileChecksum(file.toByteArray()); 
 
@@ -1065,7 +1182,7 @@ public class mainServer {
                 throw new FailedOperationException();
             }
 
-            sendFileToBackUp(fileID, file, dbUserName);
+            //sendFileToBackUp(fileID, file, dbUserName); 
             // add owner to permissions table
 
             String hashPermission = createPermissionHashDb(fileID, dbUserName, symmetricKey.toByteArray(),initializationVector.toByteArray());
@@ -1144,6 +1261,8 @@ public class mainServer {
     public UserMainServer.downloadResponse download(String fileID, ByteString cookie_bytes, ByteString timeStamp, ByteString hashMessage ) throws Exception{
 
         try{
+            verifyUsersTableStateDB();
+            
             String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
             System.out.println("Decrypted hash of cookie: " + hashCookie);
             String dbUserName = correspondentUser(hashCookie);
@@ -1173,6 +1292,9 @@ public class mainServer {
 
             System.out.println("Username no download: " + dbUserName);
 
+
+            verifyPermissionsTableStateDB();
+            verifyFilesTableStateDB();
 
             
             if(checkIfUserAlreadyHasPermission(fileID, dbUserName)){
@@ -1222,95 +1344,107 @@ public class mainServer {
 
     public UserMainServer.shareResponse share(String fileID, ByteString cookie_bytes, List<String> users, ByteString timeStamp, ByteString hashMessage) throws Exception{ //se um dos nomes inseridos pelo user estiver errado, mais nenhum e adicionado, por causa da excecao.
     
-        String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
-        System.out.println("Decrypted hash of cookie: " + hashCookie);
-        String dbUserName = correspondentUser(hashCookie);
+        try{
+            verifyUsersTableStateDB();
+            
+            String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
+            System.out.println("Decrypted hash of cookie: " + hashCookie);
+            String dbUserName = correspondentUser(hashCookie);
 
-        byte[] userPublicKeyEncrypted = getUserPublicKeyDB(dbUserName);
-        byte[] userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted,privateKey);
-        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        Key userPublicKey = keyFactory.generatePublic(keySpec); 
-    
-    
-        if(!verifyTimeStamp(timeStamp,userPublicKey))
-            throw new TimestampException();
-
-
-        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
-        messageBytes.write(fileID.getBytes());
-        messageBytes.write(":".getBytes());
-        messageBytes.write(users.toString().getBytes());
-        messageBytes.write(":".getBytes());
-        messageBytes.write(cookie_bytes.toByteArray());
-        messageBytes.write(":".getBytes());
-        messageBytes.write(timeStamp.toByteArray());
+            byte[] userPublicKeyEncrypted = getUserPublicKeyDB(dbUserName);
+            byte[] userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted,privateKey);
+            X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            Key userPublicKey = keyFactory.generatePublic(keySpec); 
         
-        String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
-        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
-            throw new MessageIntegrityException();
-        }
         
-        //check if the file exists - done
-        //check if "I" am the owner of the file - done, need to update after cookie done
-        //check if user already had permission - done
+            if(!verifyTimeStamp(timeStamp,userPublicKey))
+                throw new TimestampException();
 
 
-        //cliente pede ao servidor chave simetrica (que esta na bd encriptada com a publica do cliente) e a chave publica da pessoa com quem quer partilhar
-        List<ByteString> listOfEncryptedPublicKeysByteString = new ArrayList<>();
-        
-        if(checkIfFileExists(fileID)){
-            if(checkFileOwner(fileID, dbUserName)){
-                for (String userName : users) {
-                    if(checkIfUserExists(userName)){
-                        if(!checkIfUserAlreadyHasPermission(fileID, userName)){
+            ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+            messageBytes.write(fileID.getBytes());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(users.toString().getBytes());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(cookie_bytes.toByteArray());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(timeStamp.toByteArray());
+            
+            String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
+            if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+                throw new MessageIntegrityException();
+            }
+            
+            
+            verifyFilesTableStateDB(); 
+            verifyPermissionsTableStateDB();         
+            //check if the file exists - done
+            //check if "I" am the owner of the file - done, need to update after cookie done
+            //check if user already had permission - done
 
-                            byte[] sharedUserPublicKeyEncrypted = getUserPublicKeyDB(userName);
-                            byte[] sharedUserPublicKeyByteArray = decryptKey(sharedUserPublicKeyEncrypted,privateKey); //Decrypt with server's private key
-                            byte[] sharedUserEncryptedPublicKey = encryptKey(sharedUserPublicKeyByteArray,userPublicKey); //Encrypt with owner's public key
-                            listOfEncryptedPublicKeysByteString.add(ByteString.copyFrom(sharedUserEncryptedPublicKey)); 
+
+            //cliente pede ao servidor chave simetrica (que esta na bd encriptada com a publica do cliente) e a chave publica da pessoa com quem quer partilhar
+            List<ByteString> listOfEncryptedPublicKeysByteString = new ArrayList<>();
+            
+            if(checkIfFileExists(fileID)){
+                if(checkFileOwner(fileID, dbUserName)){
+                    for (String userName : users) {
+                        if(checkIfUserExists(userName)){
+                            if(!checkIfUserAlreadyHasPermission(fileID, userName)){
+
+                                byte[] sharedUserPublicKeyEncrypted = getUserPublicKeyDB(userName);
+                                byte[] sharedUserPublicKeyByteArray = decryptKey(sharedUserPublicKeyEncrypted,privateKey); //Decrypt with server's private key
+                                byte[] sharedUserEncryptedPublicKey = encryptKey(sharedUserPublicKeyByteArray,userPublicKey); //Encrypt with owner's public key
+                                listOfEncryptedPublicKeysByteString.add(ByteString.copyFrom(sharedUserEncryptedPublicKey)); 
+                            }
+                            else
+                                throw new UserAlreadyHasAccessException(userName);
                         }
                         else
-                            throw new UserAlreadyHasAccessException(userName);
+                            throw new UserUnknownException(userName);
                     }
-                    else
-                        throw new UserUnknownException(userName);
                 }
+                else
+                    throw new WrongOwnerException();  
             }
             else
-                throw new WrongOwnerException();  
+                throw new FileUnknownException(fileID);     
+            
+
+                byte[] encryptedSymmetricKey = getEncryptedSymmetricKeyDB(fileID, dbUserName);
+                                
+                ByteString encryptedSymmetricKeyByteString =  ByteString.copyFrom(encryptedSymmetricKey);
+                ByteString encryptedTimeStampByteString = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+
+                
+                
+                ByteArrayOutputStream responseBytes = new ByteArrayOutputStream();
+                responseBytes = new ByteArrayOutputStream();
+                responseBytes.write(encryptedSymmetricKey);
+                responseBytes.write(":".getBytes());
+                for (ByteString encryptedPublicKey : listOfEncryptedPublicKeysByteString) {
+                    responseBytes.write(encryptedPublicKey.toByteArray());
+                    responseBytes.write(":".getBytes());
+                }
+                responseBytes.write(encryptedTimeStampByteString.toByteArray());
+            
+                String hashResponse = hashString(new String(responseBytes.toByteArray()),new byte[0]);
+                System.out.println("hash String calculated by server: " + hashResponse);
+                ByteString encryptedHashResponse = ByteString.copyFrom(encrypt(privateKey, hashResponse.getBytes()));
+                
+                
+
+                UserMainServer.shareResponse response = UserMainServer.shareResponse.newBuilder()
+                .setSymmetricKey(encryptedSymmetricKeyByteString).addAllPublicKeys(listOfEncryptedPublicKeysByteString)
+                .setTimeStamp(encryptedTimeStampByteString).setHashMessage(encryptedHashResponse).build();
+
+                return response;  
         }
-        else
-            throw new FileUnknownException(fileID);     
-        
-
-            byte[] encryptedSymmetricKey = getEncryptedSymmetricKeyDB(fileID, dbUserName);
-                            
-            ByteString encryptedSymmetricKeyByteString =  ByteString.copyFrom(encryptedSymmetricKey);
-            ByteString encryptedTimeStampByteString = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
-
-            
-            
-            ByteArrayOutputStream responseBytes = new ByteArrayOutputStream();
-            responseBytes = new ByteArrayOutputStream();
-            responseBytes.write(encryptedSymmetricKey);
-            responseBytes.write(":".getBytes());
-            responseBytes.write(listOfEncryptedPublicKeysByteString.toString().getBytes());
-            System.out.println("encryptedPublicKeyListSent: " + convertToHex(listOfEncryptedPublicKeysByteString.toString().getBytes()));
-
-            responseBytes.write(":".getBytes());
-            responseBytes.write(encryptedTimeStampByteString.toByteArray());
-        
-            String hashResponse = hashString(new String(responseBytes.toByteArray()),new byte[0]);
-            ByteString encryptedHashResponse = ByteString.copyFrom(encrypt(privateKey, hashResponse.getBytes()));
-            
-            
-
-            UserMainServer.shareResponse response = UserMainServer.shareResponse.newBuilder()
-            .setSymmetricKey(encryptedSymmetricKeyByteString).addAllPublicKeys(listOfEncryptedPublicKeysByteString)
-            .setTimeStamp(encryptedTimeStampByteString).setHashMessage(encryptedHashResponse).build();
-
-            return response;  
+        catch(SQLException e){
+            System.out.println(e);
+            throw new FailedOperationException();
+        }
     }
 
 
@@ -1319,6 +1453,7 @@ public class mainServer {
     public void shareKey(ByteString cookie_bytes,List<ByteString> symmetricKeyList,
         List<String> userNameList, String fileID, 
         ByteString timeStamp, ByteString hashMessage) throws Exception{
+
         
         String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
         System.out.println("Decrypted hash of cookie: " + hashCookie);
@@ -1340,8 +1475,10 @@ public class mainServer {
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
         messageBytes.write(cookie_bytes.toByteArray());
         messageBytes.write(":".getBytes());
-        messageBytes.write(symmetricKeyList.toString().getBytes());
-        messageBytes.write(":".getBytes());
+        for (ByteString symmetricKey : symmetricKeyList) {
+            messageBytes.write(symmetricKey.toByteArray());
+            messageBytes.write(":".getBytes());
+        }
         messageBytes.write(userNameList.toString().getBytes());
         messageBytes.write(":".getBytes());
         messageBytes.write(fileID.getBytes());
@@ -1351,8 +1488,8 @@ public class mainServer {
         
         String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
         if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
-            System.out.println("ShareKey request integrity compromissed"); //---------FIX---------
-            //throw new MessageIntegrityException();
+            System.out.println("ShareKey request integrity compromissed");
+            throw new MessageIntegrityException();
         }
 
         //cliente encripta a chave simetrica com a chave publica (enviada pelo servidor) da(s) pessoa(s) com quem quer partilhar o ficheiro
@@ -1415,72 +1552,82 @@ public class mainServer {
 
     public void unshare(String fileID, ByteString cookie_bytes, List<String> users, ByteString timeStamp, ByteString hashMessage) throws Exception{ //se um dos nomes inseridos pelo user estiver errado, mais nenhum e adicionado, por causa da excecao.
         
-        String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
-        System.out.println("Decrypted hash of cookie: " + hashCookie);
-        String dbUserName = correspondentUser(hashCookie);
+        try{
+            verifyUsersTableStateDB(); 
 
-        byte[] userPublicKeyEncrypted = getUserPublicKeyDB(dbUserName);
-        byte[] userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted,privateKey);
-        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        Key userPublicKey = keyFactory.generatePublic(keySpec); 
-    
+            String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
+            System.out.println("Decrypted hash of cookie: " + hashCookie);
+            String dbUserName = correspondentUser(hashCookie);
 
-        if(!verifyTimeStamp(timeStamp,userPublicKey))
-            throw new TimestampException();
-
-
-        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
-        messageBytes.write(fileID.getBytes());
-        messageBytes.write(":".getBytes());
-        messageBytes.write(users.toString().getBytes());
-        messageBytes.write(":".getBytes());
-        messageBytes.write(cookie_bytes.toByteArray());
-        messageBytes.write(":".getBytes());
-        messageBytes.write(timeStamp.toByteArray());
-
-        String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
-        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
-            throw new MessageIntegrityException();
-        }
-
+            byte[] userPublicKeyEncrypted = getUserPublicKeyDB(dbUserName);
+            byte[] userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted,privateKey);
+            X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            Key userPublicKey = keyFactory.generatePublic(keySpec); 
         
-        //check if the file exists - done
-        //check if "I" am the owner of the file - done, need to update after cookie done
-        //check if user already had permission - done
-        if(checkIfFileExists(fileID)){
-            if(checkFileOwner(fileID, dbUserName)){
-                for (String userName : users) {
-                    if(checkIfUserExists(userName)){
-                        if(checkIfUserAlreadyHasPermission(fileID, userName)){
-                            
-                            String query = "DELETE FROM permissions WHERE filename=? AND username=?";
-                    
-                            try {
-                                PreparedStatement st = connection.prepareStatement(query);
-                                st.setString(1, fileID);
-                                st.setString(2, userName);
-                            
-                                st.executeUpdate();
-                                st.close();
-                            } 
-                            catch(SQLException e){
-                                    System.out.println("?????" + e);
-                                    throw new FailedOperationException();
+
+            if(!verifyTimeStamp(timeStamp,userPublicKey))
+                throw new TimestampException();
+
+
+            ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+            messageBytes.write(fileID.getBytes());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(users.toString().getBytes());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(cookie_bytes.toByteArray());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(timeStamp.toByteArray());
+
+            String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
+            if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+                throw new MessageIntegrityException();
+            }
+
+            verifyPermissionsTableStateDB();
+            verifyFilesTableStateDB(); 
+            
+            //check if the file exists - done
+            //check if "I" am the owner of the file - done, need to update after cookie done
+            //check if user already had permission - done
+            if(checkIfFileExists(fileID)){
+                if(checkFileOwner(fileID, dbUserName)){
+                    for (String userName : users) {
+                        if(checkIfUserExists(userName)){
+                            if(checkIfUserAlreadyHasPermission(fileID, userName)){
+                                
+                                String query = "DELETE FROM permissions WHERE filename=? AND username=?";
+                        
+                                try {
+                                    PreparedStatement st = connection.prepareStatement(query);
+                                    st.setString(1, fileID);
+                                    st.setString(2, userName);
+                                
+                                    st.executeUpdate();
+                                    st.close();
+                                } 
+                                catch(SQLException e){
+                                        System.out.println("?????" + e);
+                                        throw new FailedOperationException();
+                                }
                             }
+                            else
+                                throw new UserAlreadyHasAccessException(userName);
                         }
                         else
-                            throw new UserAlreadyHasAccessException(userName);
+                            throw new UserUnknownException(userName);
                     }
-                    else
-                        throw new UserUnknownException(userName);
                 }
+                else
+                    throw new WrongOwnerException();  
             }
             else
-                throw new WrongOwnerException();  
+                throw new FileUnknownException(fileID);
         }
-        else
-            throw new FileUnknownException(fileID);
+        catch(SQLException e){
+            System.out.println(e);
+            throw new FailedOperationException();
+        }
     }
         
         
@@ -1512,7 +1659,9 @@ public class mainServer {
                 throw new MessageIntegrityException();
             }
             
-            
+            verifyUsersTableStateDB(); 
+            verifyFilesTableStateDB(); 
+            verifyPermissionsTableStateDB(); 
 
             String password = decrypt(privateKey, password_bytes.toByteArray());
             byte[] salt = new byte[0];
@@ -1638,6 +1787,9 @@ public class mainServer {
 
     public void deleteFile(String fileID, ByteString cookie_bytes, ByteString timeStamp, ByteString hashMessage) throws Exception{
         try{
+
+            verifyUsersTableStateDB(); 
+
             String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
             System.out.println("Decrypted hash of cookie: " + hashCookie);
             String dbUserName = correspondentUser(hashCookie);
@@ -1664,6 +1816,9 @@ public class mainServer {
             if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
                 throw new MessageIntegrityException();
             }
+
+            verifyFilesTableStateDB(); 
+            verifyPermissionsTableStateDB(); 
 
         
             if(checkIfFileExists(fileID)){
