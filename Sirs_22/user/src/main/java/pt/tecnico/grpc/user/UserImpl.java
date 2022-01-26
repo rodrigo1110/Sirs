@@ -57,6 +57,10 @@ public class UserImpl {
 
     public UserImpl(String Host, int Port){
         target = Host + ":" + Port;
+        new File("publicKey").mkdirs();
+        new File("privateKey").mkdirs();
+        new File("uploads").mkdirs();
+        new File("downloads").mkdirs();
 	}
 
     public void setTarget(String Host, int Port){
@@ -869,17 +873,25 @@ public class UserImpl {
         responseBytes.write(":".getBytes());
         responseBytes.write(encryptedTimeStampByteArray);
 
+        System.out.println("################");
+
         String hashResponseString = decrypt(serverPublicKey, encryptedhashResponseByteArray);
         if(!verifyMessageHash(responseBytes.toByteArray(), hashResponseString)){
             System.out.println("Response integrity compromised");
             return;
         }
+
+        System.out.println("1111111111111111111111");
+
         byte[] decryptedSymmetricKeyByteArray =  decryptKey(encryptedSymmetricKeyByteArray, privateKey);
         SecretKey decryptedSymmetricKey = new SecretKeySpec(decryptedSymmetricKeyByteArray, 0, decryptedSymmetricKeyByteArray.length, "AES");
+
+        System.out.println("2222222222222");
 
         System.out.println("DecryptedInitializationVector: " + convertToHex(initializationVectorByteArray));
         System.out.println("DecryptedInitializationVector Size: " + initializationVectorByteArray.length);
         byte[] decryptedFileContentByteArray = decryptAES(encryptedFileContentByteArray, decryptedSymmetricKey, initializationVectorByteArray);
+        System.out.println("33333333333333333");
 
 
         downloadLocally(fileName,decryptedFileContentByteArray);
@@ -1035,7 +1047,7 @@ public class UserImpl {
     public void deleteUser() throws Exception{
             
         System.out.println("------------------------------");
-        System.out.print("Please, enter the username you want to delete: ");
+        System.out.print("Please, enter your username: ");
         String userName = System.console().readLine();
         System.out.println("You entered the username " + userName);
         System.out.println("------------------------------");
@@ -1069,6 +1081,23 @@ public class UserImpl {
             .setPassword(encryptedPassword).setTimeStamp(encryptedTimeStamp).setHashMessage(encryptedHashMessage).build();
         stub.deleteUser(request);
 
+        File file = new File("publicKey/" + username + "-PublicKey");
+
+        if (file.delete()) {
+            System.out.println("Public Key file deleted successfully.");
+        }
+        else 
+            System.out.println("Failed to delete the file");
+
+
+        file = new File("privateKey/" + username + "-PrivateKey");
+
+        if (file.delete()) {
+            System.out.println("Private Key file deleted successfully.");
+        }
+        else 
+            System.out.println("Failed to delete the file");
+            
         System.out.println("User deleted successfully!");
         cookie = "";
     }
