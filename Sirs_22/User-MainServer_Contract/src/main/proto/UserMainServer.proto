@@ -118,8 +118,9 @@ message shareRequest{
 message shareResponse{
 	bytes symmetricKey = 1;
 	repeated bytes publicKeys = 2;
-	bytes timeStamp = 3;
-	bytes hashMessage = 4;
+	repeated string wrongUserName = 3;
+	bytes timeStamp = 4;
+	bytes hashMessage = 5;
 }
 
 message shareKeyRequest{

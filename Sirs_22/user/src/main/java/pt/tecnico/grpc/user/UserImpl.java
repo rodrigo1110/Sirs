@@ -59,8 +59,7 @@ public class UserImpl {
         target = Host + ":" + Port;
         new File("publicKey").mkdirs();
         new File("privateKey").mkdirs();
-        new File("uploads").mkdirs();
-        new File("downloads").mkdirs();
+        new File("files").mkdirs();
 	}
 
     public void setTarget(String Host, int Port){
@@ -338,7 +337,7 @@ public class UserImpl {
         char [] input = System.console().readPassword();
 
         boolean hasLower , hasUpper, hasDigit, hasSpecialCharacter;
-        boolean safe = true; //so para testar mais rapido, colocar a false depois!!!
+        boolean safe = false; //so para testar mais rapido, colocar a false depois!!!
         while(safe == false){
             hasLower = false;
             hasUpper = false;
@@ -394,6 +393,11 @@ public class UserImpl {
         System.out.println("You entered the username " + userName);
         System.out.println("------------------------------");
 
+        while((userName.compareTo("x")) == 0){
+            System.out.println("You can't use that username. Please, chose another one.");
+            System.out.print("Username: ");
+            userName = System.console().readLine();
+        }
        
         String password = safePassword();
 
@@ -637,7 +641,7 @@ public class UserImpl {
         byte[] encryptedhashResponseByteArray = response.getHashMessage().toByteArray();
         byte[] encryptedTimeStampByteArray = response.getTimeStamp().toByteArray();
         List<ByteString> encryptedPublicKeyList = response.getPublicKeysList(); //ENVIAR ISTO ASSIM COMO STRING DO SERVDIOR
-        
+        List<String> wrongUserList = response.getWrongUserNameList();
 
         byte[] SymmetricKeyByteArray = decryptKey(encryptedSymmetricKeyByteArray, privateKey);
         
@@ -664,6 +668,8 @@ public class UserImpl {
             responseBytes.write(encryptedPublicKeyList.get(i).toByteArray()); //-------This one is different from the one sent by server by a few bits
             responseBytes.write(":".getBytes());
         }
+        responseBytes.write(wrongUserList.toString().getBytes());
+        responseBytes.write(":".getBytes());
         responseBytes.write(encryptedTimeStampByteArray);
 
         String hashResponseString = decrypt(serverPublicKey, encryptedhashResponseByteArray);
@@ -671,6 +677,10 @@ public class UserImpl {
             System.out.println("Response integrity compromised");
         } 
 
+        for (String wrongUserName : wrongUserList) {
+            listOfUsers.remove(wrongUserName);
+            System.out.println("User " + wrongUserName + " doesn't exist. You can't share the file " + fileName + " with this user.");
+        }
 
         System.out.println("SymmetricKey from " + fileName + " was successfully obtained.");
         shareKey(listOfPublicKeys, listOfUsers, SymmetricKeyByteArray, fileName, encryptedhashCookie);
@@ -714,8 +724,6 @@ public class UserImpl {
 
         String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
         ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
-
-
     
         UserMainServer.shareKeyRequest request = UserMainServer.shareKeyRequest.newBuilder().
             setFileId(fileName).addAllSymmetricKey(listOfEncryptedSymmetricKeysByteString).addAllUserNames(listOfUsers).setCookie(encryptedHashCookie).
@@ -788,17 +796,17 @@ public class UserImpl {
 
     public void downloadLocally(String fileName, byte[] decryptedFileContentByteArray) throws Exception{
         File file = null;
-        file = new File("downloads/" + fileName);
+        file = new File("files/" + fileName);
 
         if (file.createNewFile()) {
             System.out.println("New file created: " + file.getName());
             OutputStream os = new FileOutputStream(file);
             os.write(decryptedFileContentByteArray);
             os.close();
-            System.out.println("Successful Download! You can find your downloaded file in your downloads directory.");
+            System.out.println("Successful Download! You can find your downloaded file in your files directory.");
         } 
         else {
-            System.out.println("A file with the same name already exists in your downloads directory. Are you sure you want to replace it? (Y/n)");
+            System.out.println("A file with the same name already exists in your files directory. Are you sure you want to replace it? (Y/n)");
             System.out.print("> ");
             String replace = System.console().readLine();
             
@@ -808,13 +816,91 @@ public class UserImpl {
                     OutputStream os = new FileOutputStream(file);
                     os.write(decryptedFileContentByteArray);
                     os.close();
-                    System.out.println("Successful Download! You can find your downloaded file in your downloads directory.");
+                    System.out.println("Successful Download! You can find your downloaded file in your files directory.");
                 }
                 else 
                     System.out.println("Failed to delete the file");
             }
             else
                 System.out.println("File was not replaced.");
+        }
+    }
+
+    public void createFile() throws Exception{
+
+        System.out.println("------------------------------");
+        System.out.print("Please, enter the name of the file you want to create: ");
+        String fileName = System.console().readLine();
+        fileName = fileName.concat(".txt");
+
+        File file = null;
+        file = new File("files/" + fileName);
+
+        if (file.createNewFile()) {
+            System.out.println("File " + file.getName() + " created.");
+        } 
+        else {
+            System.out.println("A file with the same name already exists in your files directory. Are you sure you want to replace it? (Y/n)");
+            System.out.print("> ");
+            String replace = System.console().readLine();
+            
+            if(replace.compareTo("Y") == 0){
+                if (file.delete()) {
+                    System.out.println("File replaced successfully");
+                }
+                else 
+                    System.out.println("Failed to delete the file");
+            }
+            else
+                System.out.println("File was not replaced.");
+        }
+    }
+
+    public void editFile() throws Exception{
+
+        System.out.println("------------------------------");
+        System.out.print("Please, enter the name of the file you want to edit: ");
+        String fileName = System.console().readLine();
+        fileName = fileName.concat(".txt");
+
+        File file = null;
+        file = new File("files/" + fileName);
+
+        if(file.createNewFile()) {
+            System.out.println("File " + file.getName() + " created.");
+            OutputStream os = new FileOutputStream(file);
+
+            System.out.println("------------------------------");
+            System.out.println("Please, enter the new file content. When you are done, press Enter.");
+
+            String fileContent = System.console().readLine();
+
+            //while(!fileContent.equals("x")){
+                os.write(fileContent.getBytes());
+            //}
+
+            os.close();
+            System.out.println("Successful edit!");
+        } 
+        else {            
+                if(file.delete()) {
+
+                    System.out.println("------------------------------");
+                    System.out.println("Please, enter the new file content. When you are done, press Enter.");
+                    String fileContent = System.console().readLine();
+
+                    OutputStream os = new FileOutputStream(file);
+
+                    //while(!fileContent.equals("x")){
+                        os.write(fileContent.getBytes());
+                    //}
+
+                    os.close();
+                    System.out.println("Successful edit!");
+
+                }
+                else 
+                    System.out.println("Failed to delete the file");
         }
     }
 
@@ -964,7 +1050,10 @@ public class UserImpl {
 
         for(int i = 0; i < listOfFiles.size(); i++){
             System.out.print("- ");
-            System.out.println(listOfFiles.get(i));
+            String fileName = listOfFiles.get(i);
+            String[] fileNameToSplit = fileName.split("\\.");
+            fileName = fileNameToSplit[0];
+            System.out.println(fileName);
         }
     }
 
@@ -980,11 +1069,11 @@ public class UserImpl {
 
         byte[] byteArray = new byte[0];
         try{
-            Path path = Paths.get("uploads/" + fileName);
+            Path path = Paths.get("files/" + fileName);
             byteArray = Files.readAllBytes(path);
         }catch (Exception e){
             if(e.getClass().toString().compareTo("class java.nio.file.NoSuchFileException") == 0)
-                System.out.println("That file does not exist in your uploads directory.");
+                System.out.println("That file does not exist in your files directory.");
             return;
         }
 
@@ -1077,7 +1166,10 @@ public class UserImpl {
         System.out.println("You entered the password " + password);
         System.out.println("-------- ----------------------");
 
-        
+        if(userName.compareTo(this.username) != 0){
+            System.out.println("That is not your username. Please, try again.");
+            return;
+        }       
         
         ByteString encryptedPassword = ByteString.copyFrom(encrypt(serverPublicKey, password.getBytes()));
         ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
@@ -1125,6 +1217,7 @@ public class UserImpl {
         System.out.println("------------------------------");
         System.out.print("Please, enter the name of the file you want to delete: ");
         String fileName = System.console().readLine();
+        fileName = fileName.concat(".txt");
         System.out.println("You entered the file " + fileName);
         System.out.println("------------------------------");
 

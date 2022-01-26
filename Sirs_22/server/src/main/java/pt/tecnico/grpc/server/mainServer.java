@@ -1458,59 +1458,70 @@ public class mainServer {
             //cliente pede ao servidor chave simetrica (que esta na bd encriptada com a publica do cliente) e a chave publica da pessoa com quem quer partilhar
             List<ByteString> listOfEncryptedPublicKeysByteString = new ArrayList<>();
             
+            List<String> listOfWrongNames = new ArrayList<String>();
+            
             if(checkIfFileExists(fileID)){
                 if(checkFileOwner(fileID, dbUserName)){
                     for (String userName : users) {
                         if(checkIfUserExists(userName)){
                             if(!checkIfUserAlreadyHasPermission(fileID, userName)){
 
+                                System.out.println("user no share: " + userName);
+
                                 byte[] sharedUserPublicKeyEncrypted = getUserPublicKeyDB(userName);
                                 byte[] sharedUserPublicKeyByteArray = decryptKey(sharedUserPublicKeyEncrypted,privateKey); //Decrypt with server's private key
                                 byte[] sharedUserEncryptedPublicKey = encryptKey(sharedUserPublicKeyByteArray,userPublicKey); //Encrypt with owner's public key
                                 listOfEncryptedPublicKeysByteString.add(ByteString.copyFrom(sharedUserEncryptedPublicKey)); 
                             }
-                            else
+                            else{  
                                 throw new UserAlreadyHasAccessException(userName);
+                            }
                         }
-                        else
-                            throw new UserUnknownException(userName);
+                        else{
+                            System.out.println("nome errado server: " + userName);
+                            listOfWrongNames.add(userName);
+                        }
                     }
                 }
-                else
+                else{
                     throw new WrongOwnerException();  
-            }
-            else
-                throw new FileUnknownException(fileID);     
-            
-
-                byte[] encryptedSymmetricKey = getEncryptedSymmetricKeyDB(fileID, dbUserName);
-                                
-                ByteString encryptedSymmetricKeyByteString =  ByteString.copyFrom(encryptedSymmetricKey);
-                ByteString encryptedTimeStampByteString = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
-
-                
-                
-                ByteArrayOutputStream responseBytes = new ByteArrayOutputStream();
-                responseBytes = new ByteArrayOutputStream();
-                responseBytes.write(encryptedSymmetricKey);
-                responseBytes.write(":".getBytes());
-                for (ByteString encryptedPublicKey : listOfEncryptedPublicKeysByteString) {
-                    responseBytes.write(encryptedPublicKey.toByteArray());
-                    responseBytes.write(":".getBytes());
                 }
-                responseBytes.write(encryptedTimeStampByteString.toByteArray());
+            }
+            else{
+                throw new FileUnknownException(fileID);     
+            }
+
+            byte[] encryptedSymmetricKey = getEncryptedSymmetricKeyDB(fileID, dbUserName);
+                            
+            ByteString encryptedSymmetricKeyByteString =  ByteString.copyFrom(encryptedSymmetricKey);
+            ByteString encryptedTimeStampByteString = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+
             
-                String hashResponse = hashString(new String(responseBytes.toByteArray()),new byte[0]);
-                System.out.println("hash String calculated by server: " + hashResponse);
-                ByteString encryptedHashResponse = ByteString.copyFrom(encrypt(privateKey, hashResponse.getBytes()));
-                
-                
+            
+            ByteArrayOutputStream responseBytes = new ByteArrayOutputStream();
+            responseBytes = new ByteArrayOutputStream();
+            responseBytes.write(encryptedSymmetricKey);
+            responseBytes.write(":".getBytes());
+            for (ByteString encryptedPublicKey : listOfEncryptedPublicKeysByteString) {
+                responseBytes.write(encryptedPublicKey.toByteArray());
+                responseBytes.write(":".getBytes());
+            }
+            responseBytes.write(listOfWrongNames.toString().getBytes());
+            responseBytes.write(":".getBytes());
+            responseBytes.write(encryptedTimeStampByteString.toByteArray());
+        
+            String hashResponse = hashString(new String(responseBytes.toByteArray()),new byte[0]);
+            System.out.println("hash String calculated by server: " + hashResponse);
+            ByteString encryptedHashResponse = ByteString.copyFrom(encrypt(privateKey, hashResponse.getBytes()));
+            
+            
 
-                UserMainServer.shareResponse response = UserMainServer.shareResponse.newBuilder()
-                .setSymmetricKey(encryptedSymmetricKeyByteString).addAllPublicKeys(listOfEncryptedPublicKeysByteString)
-                .setTimeStamp(encryptedTimeStampByteString).setHashMessage(encryptedHashResponse).build();
+            UserMainServer.shareResponse response = UserMainServer.shareResponse.newBuilder()
+            .setSymmetricKey(encryptedSymmetricKeyByteString).addAllPublicKeys(listOfEncryptedPublicKeysByteString).
+            addAllWrongUserName(listOfWrongNames).setTimeStamp(encryptedTimeStampByteString).
+            setHashMessage(encryptedHashResponse).build();
 
-                return response;  
+            return response;  
         }
         catch(SQLException e){
             System.out.println(e);
@@ -1695,7 +1706,7 @@ public class mainServer {
                     }
                 }
                 else
-                    throw new WrongOwnerException();  
+                    throw new WrongOwnerUnshareException();  
             }
             else
                 throw new FileUnknownException(fileID);
@@ -1930,7 +1941,7 @@ public class mainServer {
                         deleteFileBackUp(fileID);
                 }
                 else
-                    throw new WrongOwnerException(); //alterar esta excecao para recer delete/share
+                    throw new WrongOwnerDeleteException(); //alterar esta excecao para recer delete/share
             }
             else
                 throw new FileUnknownException(fileID);

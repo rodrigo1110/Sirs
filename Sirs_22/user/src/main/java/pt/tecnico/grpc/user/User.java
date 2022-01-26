@@ -109,7 +109,13 @@ public class User {
 						case "logout":
 							user.logout();
 							break;
-						case "showFiles":
+						case "createFile":
+							user.createFile();
+							break;
+						case "editFile":
+							user.editFile();
+							break;
+						case "showRemoteFiles":
 							user.showFiles();
 							break;
 						case "download":
@@ -132,14 +138,16 @@ public class User {
 							break;
 						case "help":
 							System.out.printf("Avaliable operations:\n");
-							System.out.printf(" - logout\n");
-							System.out.printf(" - showFiles\n");
+							System.out.printf(" - createFile\n");
+							System.out.printf(" - editFile\n");
+							System.out.printf(" - showRemoteFiles\n");
 							System.out.printf(" - download\n");
 							System.out.printf(" - upload\n"); 
 							System.out.printf(" - share\n"); 
 							System.out.printf(" - unshare\n"); 
 							System.out.printf(" - deleteUser\n"); 
 							System.out.printf(" - deleteFile\n"); 
+							System.out.printf(" - logout\n");
 							System.out.printf(" - exit\n");
 							break;
 						case "exit":
