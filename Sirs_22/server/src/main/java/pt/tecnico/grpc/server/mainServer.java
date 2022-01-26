@@ -148,6 +148,24 @@ public class mainServer {
         throw new UserUnknownException(userName);
     }
 
+
+    public String getFileOwner(String fileName) throws Exception{
+
+        String query = "SELECT fileowner FROM files WHERE filename=?";
+
+ 
+        PreparedStatement st = connection.prepareStatement(query);
+        st.setString(1, fileName);
+    
+        ResultSet rs = st.executeQuery();        
+
+        if (rs.next()) {      
+
+            return rs.getString(1);
+        }
+        throw new FileNotFoundException();
+    }
+
     public byte[] getEncryptedFileContentDB(String fileName) throws Exception{
 
         String query = "SELECT filecontent FROM files WHERE filename=?";
@@ -164,6 +182,8 @@ public class mainServer {
         }
         throw new FileNotFoundException();
     }
+
+
     
     public byte[] getEncryptedSymmetricKeyDB(String fileName, String userName) throws Exception{
 
@@ -645,8 +665,8 @@ public class mainServer {
 
                 st.executeUpdate();
                 st.close();
-
-                sendUserToBackUp(username, hashString(password, salt), salt, ByteString.copyFrom(publickeyClient.toByteArray()), ByteString.copyFrom(encryptedHashUser));
+                if(clientActive)
+                    sendUserToBackUp(username, hashString(password, salt), salt, ByteString.copyFrom(publickeyClient.toByteArray()), ByteString.copyFrom(encryptedHashUser));
             }
 
         } catch(SQLException e){
@@ -823,7 +843,8 @@ public class mainServer {
                                 throw new FailedOperationException();
                             }
 
-                            updateCookieBackUp(username, hashString(cookie, new byte[0]), ByteString.copyFrom(hashUserEncrypted));
+                            if(clientActive)
+                                updateCookieBackUp(username, hashString(cookie, new byte[0]), ByteString.copyFrom(hashUserEncrypted));
 
 
                             
@@ -1034,8 +1055,8 @@ public class mainServer {
                 System.out.println("Couldn't update cookie" + e);
                 throw new FailedOperationException();
             }
-            
-            updateCookieBackUp(dbUserName, "", ByteString.copyFrom(hashUserEncrypted));
+            if(clientActive)
+                updateCookieBackUp(dbUserName, "", ByteString.copyFrom(hashUserEncrypted));
         }
         catch(SQLException e){
             System.out.println(e);
@@ -1168,7 +1189,8 @@ public class mainServer {
             
             
             if(checkIfFileExists(fileID) && checkIfUserAlreadyHasPermission(fileID, dbUserName)){ //encryption with righ symmetric key guaranteed by isUpdate)                                                
-                String hashFile = createFileHashDb(fileID, file.toByteArray(), dbUserName);
+                String ownerFile = getFileOwner(fileID);
+                String hashFile = createFileHashDb(fileID, file.toByteArray(), ownerFile);
                 byte[] hashFileEncrypted = encrypt(privateKey, hashFile.getBytes());
                 
                 String query = "UPDATE files SET filecontent=?, hash=? WHERE filename=?";   
@@ -1187,7 +1209,8 @@ public class mainServer {
                     System.out.println("Couldn't update fileContent" + e);
                     //throw new FailedOperationException(); tive de comentar -> unreachable code
                 }
-                updateFileBackUp(fileID, file, ByteString.copyFrom(hashFileEncrypted));
+                if(clientActive)
+                    updateFileBackUp(fileID, file, ByteString.copyFrom(hashFileEncrypted));
 
             } 
             if(checkIfFileExists(fileID) && !checkIfUserAlreadyHasPermission(fileID, dbUserName))
@@ -1222,7 +1245,8 @@ public class mainServer {
                 throw new FailedOperationException();
             }
 
-            sendFileToBackUp(fileID, file, dbUserName, ByteString.copyFrom(hashFileEncrypted)); 
+            if(clientActive)
+                sendFileToBackUp(fileID, file, dbUserName, ByteString.copyFrom(hashFileEncrypted)); 
             // add owner to permissions table
 
             String hashPermission = createPermissionHashDb(fileID, dbUserName, symmetricKey.toByteArray(),initializationVector.toByteArray());
@@ -1255,7 +1279,8 @@ public class mainServer {
 
             }
 
-            sendPermissionToBackUp(fileID, dbUserName, ByteString.copyFrom(symmetricKey.toByteArray()), 
+            if(clientActive)
+                sendPermissionToBackUp(fileID, dbUserName, ByteString.copyFrom(symmetricKey.toByteArray()), 
             ByteString.copyFrom(initializationVector.toByteArray()), ByteString.copyFrom(hashPermissionEncrypted));
         }
         catch(SQLException e){
@@ -1565,13 +1590,14 @@ public class mainServer {
                                
                                 st.executeUpdate();
                                 st.close();
+                                i++;
                             } 
                             catch(SQLException e){
                                     System.out.println("?????" + e);
                                     throw new FailedOperationException();
                             }
-
-                            sendPermissionToBackUp(fileID, userName, ByteString.copyFrom(encryptedSymmetricKey),
+                            if(clientActive)
+                                sendPermissionToBackUp(fileID, userName, ByteString.copyFrom(encryptedSymmetricKey),
                              ByteString.copyFrom(initializationVector), ByteString.copyFrom(hashPermissionEncrypted));
                             
                         }
@@ -1653,7 +1679,8 @@ public class mainServer {
                                         System.out.println("?????" + e);
                                         throw new FailedOperationException();
                                 }
-                                removePermissionFromBackUp(fileID, userName);
+                                if(clientActive)
+                                    removePermissionFromBackUp(fileID, userName);
                             }
                             else
                                 throw new UserAlreadyHasAccessException(userName);
@@ -1820,7 +1847,8 @@ public class mainServer {
                     System.out.println("deleting files belonging to deleted user" + e);
                     throw new FailedOperationException();
                 }
-                deleteUserBackUp(userName);
+                if(clientActive)
+                    deleteUserBackUp(userName);
             }
         } catch(SQLException e){
             System.out.println(e);
@@ -1893,7 +1921,8 @@ public class mainServer {
                             System.out.println("deleting this files permissions" + e);
                     }
                     
-                    deleteFileBackUp(fileID);
+                    if(clientActive)
+                        deleteFileBackUp(fileID);
                 }
                 else
                     throw new WrongOwnerException(); //alterar esta excecao para recer delete/share

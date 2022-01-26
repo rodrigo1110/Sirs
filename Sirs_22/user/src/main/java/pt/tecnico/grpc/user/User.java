@@ -154,6 +154,7 @@ public class User {
 						if(!serverLeft)
 							System.exit(0);
 						user.setTarget(backupHost, port+2);
+						TimeUnit.SECONDS.sleep(1);
 						user.hello();
 						serverLeft = false;
 					}

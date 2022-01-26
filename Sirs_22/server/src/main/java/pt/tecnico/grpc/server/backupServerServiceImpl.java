@@ -144,7 +144,7 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 	@Override
 	public void updateFile(MainBackupServer.updateFileRequest request, StreamObserver<MainBackupServer.updateFileResponse> responseObserver) {
 		try{
-			server.updateFile(request.getFilename(), request.getFileContent(), request.getHash());
+			server.updateFile(request.getFileName(), request.getFileContent(), request.getHash());
 
 			MainBackupServer.updateFileResponse response = MainBackupServer.updateFileResponse.newBuilder().build();
 			responseObserver.onNext(response);
