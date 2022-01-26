@@ -40,14 +40,15 @@ public class server {
 			System.out.printf("arg[%d] = %s%n", i, args[i]);
 		}
 
-		if (args.length != 2) {
+		if ((args.length != 2) && (Integer.valueOf(args[0]) == 1)) {
 			System.err.println("Invalid Number of Arguments");
 			System.err.printf("Usage: java %s instance_of_server backup server's host name %n", server.class.getName());
 			return;
 		} 
 
 		instance = Integer.valueOf(args[0]);
-		backupHostName = args[1];
+		if(instance==1)
+			backupHostName = args[1];
 		
 		if(instance==1){
 			try{
@@ -80,22 +81,29 @@ public class server {
 	public static void createServer(int instance) throws IOException{
 		if(instance==1){
 			impl = new mainServerServiceImpl();
-			server = ServerBuilder.forPort(port + instance).useTransportSecurity(new File("tlscert/server.crt"),
+			server = ServerBuilder.forPort(port + 1).useTransportSecurity(new File("tlscert/server.crt"),
         	new File("tlscert/server.pem")).addService(impl).build();
 			server.start();
 		}
 		else{
 			impl = new backupServerServiceImpl(instance);
-			server = ServerBuilder.forPort(port + instance).useTransportSecurity(new File("tlscert/backupServer.crt"), 
+			server = ServerBuilder.forPort(port + 2).useTransportSecurity(new File("tlscert/backupServer.crt"), 
         	new File("tlscert/backupServer.pem")).addService(impl).build();
 			server.start();
 		}
 	}
 
+	public void createMainServer() throws IOException{
+		impl = new mainServerServiceImpl();
+		server = ServerBuilder.forPort(port + 3).useTransportSecurity(new File("tlscert/server.crt"),
+		new File("tlscert/server.pem")).addService(impl).build();
+		server.start();
+}
+
 
 	public static void createClient(int instance, String host) throws StatusRuntimeException, SSLException{
 		clientActive = false;
-		final String target = host + ":" + (port + instance + 1);
+		final String target = host + ":" + (port + 2);
 		File tls_cert = new File("tlscert/backupServer.crt");
 		
 		channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
@@ -112,6 +120,7 @@ public class server {
 	public Server getServer(){
 		return server;
 	}
+
 
 	public ManagedChannel getChannel(){
 		return channel;

@@ -70,6 +70,7 @@
 					<arguments>
 						<argument>${server.host}</argument>
 						<argument>${server.port}</argument>
+						<argument>${server.host}</argument>
 					</arguments>
 				</configuration>
 			</plugin>

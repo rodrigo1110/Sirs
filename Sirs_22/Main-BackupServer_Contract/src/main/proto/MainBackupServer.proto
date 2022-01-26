@@ -11,66 +11,16 @@ message HelloResponse {
 	string greeting = 1;
 }
 
-//----------Heartbeat for later when there are multiple backups---------------
-
-message heartbeatRequest{
-
-}
-
-message heartbeatResponse{
-	int32 instance = 1;
-	string status = 2;
-	int32 sequenceOverview = 3; //Possibly useful or useless for later 
-}
 
 
 
 message promoteRequest {
-	int32 targetInstance = 1;
 }
 
 message promoteResponse {
 }
 
 
-
-message writeRequest {
-	string username = 1;
-	string field = 2;
-	string value = 3;
-	int32 sequence = 4;
-}
-
-message writeResponse {
-}
-
-
-
-
-
-//--------------------- Reads for testing and later use -------------------
-message readRequest{
-	string username = 1;
-	string field = 2;
-}
-
-message readResponse{
-	string value = 1;
-	int32 sequence = 2;
-}
-
-
-message readFileRequest{
-	string username = 1;
-	string fileId = 2;
-}
-
-message readFileResponse{
-	bytes fileContent = 1;
-	int32 sequence = 2;
-}
-
-//---------------------------
 message writeUserRequest {
 	string username = 1;
 	string hashPassword = 2;
@@ -128,12 +78,8 @@ message deleteUserResponse {
 
 service MainBackupServerService {
 	rpc greeting(HelloRequest) returns (HelloResponse);
-	rpc heartbeat(heartbeatRequest) returns (heartbeatResponse);
 	rpc promote(promoteRequest) returns (promoteResponse);
-	rpc write(writeRequest) returns (writeResponse);
 	rpc writeFile(writeFileRequest) returns (writeFileResponse);
-	rpc read(readRequest) returns (readResponse);
-	rpc readFile(readFileRequest) returns (readFileResponse);
 	rpc writeUser(writeUserRequest) returns (writeUserResponse);
 	rpc writePermission(writePermissionRequest) returns (writePermissionResponse);
 	rpc removePermission(removePermissionRequest) returns (removePermissionResponse);

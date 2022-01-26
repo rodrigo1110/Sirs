@@ -16,7 +16,7 @@ import java.util.Scanner;
 import java.sql.Timestamp;
 import java.io.*;
 import java.nio.file.Files;
-
+import java.nio.file.NoSuchFileException;
 import java.security.NoSuchAlgorithmException;
 
 import java.util.Arrays;
@@ -52,15 +52,31 @@ public class UserImpl {
     private static Key serverPublicKey;
     private static boolean hasServerPublicKey = false;
     private String username = "";
+    private String target;
 
 
-    public UserImpl(String host, int port){
-        host = host;
-        port = port;
+    public UserImpl(String Host, int Port){
+        target = Host + ":" + Port;
 	}
+
+    public void setTarget(String Host, int Port){
+        target = Host + ":" + Port;
+    }
 
     public String getCookie(){
         return cookie;
+    }
+
+    public void hello() throws Exception{
+        File tls_cert = new File("../server/tlscert/server.crt");
+        channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
+    
+        stub = UserMainServerServiceGrpc.newBlockingStub(channel);
+        UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
+		UserMainServer.HelloRequest request = UserMainServer.HelloRequest.newBuilder().setName("friend").build();
+
+		UserMainServer.HelloResponse response = stub.greeting(request);
+		System.out.println(response);
     }
 
     public static Key getPublicKey(String filename) throws Exception {
@@ -385,7 +401,7 @@ public class UserImpl {
 
 
 
-    public void signup(String target) throws Exception{
+    public void signup() throws Exception{
 		
         System.out.println("------------------------------");
         System.out.println("User Registration");
@@ -461,7 +477,7 @@ public class UserImpl {
     
 
 
-    public void login(String target) throws Exception{
+    public void login() throws Exception{
 
         System.out.println("------------------------------");
         System.out.print("Please, enter your username: ");
@@ -484,10 +500,15 @@ public class UserImpl {
             serverPublicKey = getPublicKey("../server/rsaPublicKey");
             hasServerPublicKey = true;
         }
-        String targetPublic = "publicKey/" + userName + "-PublicKey";
-        String targetPrivate = "privateKey/" + userName + "-PrivateKey";
-        publicKey = getPublicKey(targetPublic);
-        privateKey = getPrivateKey(targetPrivate);
+        try{
+            String targetPublic = "publicKey/" + userName + "-PublicKey";
+            String targetPrivate = "privateKey/" + userName + "-PrivateKey";
+            publicKey = getPublicKey(targetPublic);
+            privateKey = getPrivateKey(targetPrivate);
+        }catch(NoSuchFileException e){
+            System.out.println("User not existent locally. Must sign up locally first.");
+            return;
+        }
 
         ByteString encryptedPassword = ByteString.copyFrom(encrypt(serverPublicKey, password.getBytes()));
         ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));

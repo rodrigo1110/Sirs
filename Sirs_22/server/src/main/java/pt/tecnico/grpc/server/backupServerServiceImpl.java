@@ -5,6 +5,8 @@ import pt.tecnico.grpc.MainBackupServerServiceGrpc;
 import pt.tecnico.grpc.server.backupServer;
 
 import static io.grpc.Status.*;
+
+import io.grpc.Server;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import javax.net.ssl.SSLException;
@@ -35,34 +37,22 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 	}
 
 
-	@Override
-	public void heartbeat(MainBackupServer.heartbeatRequest request, StreamObserver<MainBackupServer.heartbeatResponse> responseObserver) {
-		try{
-			MainBackupServer.heartbeatResponse response = server.heartbeat(instanceNumber);
-			responseObserver.onNext(response);
-			responseObserver.onCompleted();
-		}
-		catch (Exception e){
-			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
-		}
-	}
-
 
 	@Override
 	public void promote(MainBackupServer.promoteRequest request, StreamObserver<MainBackupServer.promoteResponse> responseObserver) {
 		try{
-			if(request.getTargetInstance() == instanceNumber)
-				server.promote();
+			
+			//server.promote();
 			
 			MainBackupServer.promoteResponse response = MainBackupServer.promoteResponse.newBuilder().build();
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();
 
-			if(request.getTargetInstance() == instanceNumber){
-				//listeningServer.getServer().shutdown(); use later for killing backup server 
-				//listeningServer.createClient(instanceNumber,localhost); use later for creating new client to new principal backup
-				//listeningServer.createServer(instanceNumber) use later for server promotion from principal backup to mainServer
-			}
+			//listeningServer.getServer().shutdown(); //use later for killing backup server 
+			//listeningServer.createClient(instanceNumber, "localhost"); //use later for creating new client to new principal backup
+			//listeningServer.setOldServer(listeningServer.getServer());
+			listeningServer.createMainServer(); //use later for server promotion from principal backup to mainServer
+			
 		}
 		/*catch (StatusRuntimeException e){   //Do something about these exceptions later or just delete them because they don't alter system in any way
 		} catch (SSLException e){
@@ -70,21 +60,7 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 			System.err.println("IOException with message: " + ex.getMessage() + " and cause:" + ex.getCause());
 			System.exit(-1);
 		} catch (Exception e){
-			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
-		}
-	}
-
-
-	@Override
-	public void write(MainBackupServer.writeRequest request, StreamObserver<MainBackupServer.writeResponse> responseObserver) {
-		try{
-			server.write(request.getUsername(),request.getField(),request.getValue(),request.getSequence());
-
-			MainBackupServer.writeResponse response = MainBackupServer.writeResponse.newBuilder().build();
-			responseObserver.onNext(response);
-			responseObserver.onCompleted();
-		}
-		catch (Exception e){
+			System.out.println(e.getMessage());
 			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
 		}
 	}
@@ -104,31 +80,6 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 		}
 	}
 
-
-	@Override
-	public void read(MainBackupServer.readRequest request, StreamObserver<MainBackupServer.readResponse> responseObserver) {
-		try{
-			MainBackupServer.readResponse response  = server.read(request.getUsername(),request.getField());
-			responseObserver.onNext(response);
-			responseObserver.onCompleted();
-		}
-		catch (Exception e){
-			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
-		}
-	}
-
-
-	@Override
-	public void readFile(MainBackupServer.readFileRequest request, StreamObserver<MainBackupServer.readFileResponse> responseObserver) {
-		try{
-			MainBackupServer.readFileResponse response  = server.readFile(request.getUsername(),request.getFileId());
-			responseObserver.onNext(response);
-			responseObserver.onCompleted();
-		}
-		catch (Exception e){
-			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
-		}
-	}
 
 	@Override
 	public void writeUser(MainBackupServer.writeUserRequest request, StreamObserver<MainBackupServer.writeUserResponse> responseObserver) {

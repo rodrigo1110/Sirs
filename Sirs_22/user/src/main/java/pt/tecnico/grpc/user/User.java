@@ -5,6 +5,7 @@ import pt.tecnico.grpc.UserMainServer;
 import pt.tecnico.grpc.UserMainServerServiceGrpc;
 
 import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
 import java.io.DataOutputStream;
 
 import io.grpc.ManagedChannel;
@@ -27,7 +28,7 @@ public class User {
 			System.out.printf("arg[%d] = %s%n", i, args[i]);
 		}
 
-		if (args.length != 2) {
+		if (args.length != 3) {
 			System.err.println("Invalid Number of Arguments");
 			myObj.close();
 			return;
@@ -35,12 +36,14 @@ public class User {
 
 		final String host = args[0];
 		final int port = Integer.parseInt(args[1]);
+		final String backupHost = args[2];
 		final String target = host + ":" + port;
 
 		String[] command;
 		String str;
 		final String id = "aluno";
 		final String password = "password";
+		Boolean serverLeft = true;
 
 		// Channel is the abstraction to connect to a service endpoint
 		File tls_cert = new File("../server/tlscert/server.crt");
@@ -67,10 +70,10 @@ public class User {
 				try{
 					switch (command[0]) {
 						case "signup":
-							user.signup(target);
+							user.signup();
 							break;
 						case "login":
-							user.login(target);
+							user.login();
 							break;
 						case "help":
 							System.out.printf("Avaliable operations:\n");
@@ -86,7 +89,13 @@ public class User {
 					}
 				} catch(StatusRuntimeException e){
 					if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){//ransomware
-						System.out.println("Ransmomware");
+						System.out.println("Ransmomware attack detected.");
+						if(!serverLeft)
+							System.exit(0);
+						user.setTarget(backupHost, port + 2);
+						TimeUnit.SECONDS.sleep(1);
+						user.hello();
+						serverLeft = false;
 					}
 					else{
 						System.out.println(e.getStatus().getDescription());
@@ -137,7 +146,12 @@ public class User {
 					}
 				} catch(StatusRuntimeException e){
 					if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){//ransomware
-						System.out.println("Ransmomware");
+						System.out.println("Ransmomware attack detected.");
+						if(!serverLeft)
+							System.exit(0);
+						user.setTarget(backupHost, port+2);
+						user.hello();
+						serverLeft = false;
 					}
 					else{
 						System.out.println(e.getStatus().getDescription());
@@ -149,29 +163,15 @@ public class User {
 		}
 		
 		myObj.close();
-		/*public static void createConnection(String host, int port) throws StatusRuntimeException, SSLException{
+		
 
-			final String target = host + ":" + (port + instance + 1);
-			File tls_cert = new File("tlscert/backupServer.crt");
-			
-			//---just for testing, delete laters---
-			
-		}*/
-
-		// It is up to the client to determine whether to block the call
-		// Here we create a blocking stub, but an async stub,
-		// or an async stub with Future are always possible.
-		UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
+		
+		/*UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
 		UserMainServer.HelloRequest request = UserMainServer.HelloRequest.newBuilder().setName("friend").build();
 
-
-		// Finally, make the call using the stub
 		UserMainServer.HelloResponse response = stub.greeting(request);
+		System.out.println(response);*/
 
-		// HelloResponse has auto-generated toString method that shows its contents
-		System.out.println(response);
-
-		// A Channel should be shutdown before stopping the process.
 		channel.shutdownNow();
 	}
 

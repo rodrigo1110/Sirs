@@ -64,7 +64,9 @@ public class mainServer {
             channel = Channel;
             stub = Stub;
             clientActive = true;
+            System.out.println("Existent backup server. Connected");
         }
+        
         
     }
     
@@ -344,8 +346,12 @@ public class mainServer {
                 String hashLineDB = decrypt(publicKey, encryptedHashLineDB);
                 String hashLine = createUserHashDb(userName, password, cookie, salt, publicKeyDB);
                 
-                if(hashLineDB.compareTo(hashLine) != 0){
-                    System.out.println("SOL SOL SOL");
+                if(hashLineDB.compareTo(hashLine) != 0){ //change this verification for ==0  for testing ransomware attack
+                    System.out.println("Error Error Error... Integrity of table users compromissed! Shutting Down...");
+                    if(clientActive){
+                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
+                        stub.promote(request);
+                    }
                     throw new RansomwareAttackException();
                 }            
             }
@@ -375,6 +381,11 @@ public class mainServer {
                 String hashLine = createFileHashDb(fileName, fileContent, fileOwner);
                 
                 if(hashLineDB.compareTo(hashLine) != 0){
+                    System.out.println("Eror Error Error... Integrity of table files compromissed! Shutting down...");
+                    if(clientActive){
+                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
+                        stub.promote(request);
+                    }
                     throw new RansomwareAttackException();
                 }            
             }
@@ -404,6 +415,11 @@ public class mainServer {
                 String hashLine = createPermissionHashDb(fileName, userName, encryptedSymmetricKey, encryptedInitializationVector);
                 
                 if(hashLineDB.compareTo(hashLine) != 0){
+                    System.out.println("Eror Error Error... Integrity of table permissions compromissed! Shutting down...");
+                    if(clientActive){
+                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
+                        stub.promote(request);
+                    }
                     throw new RansomwareAttackException();
                 }            
             }
