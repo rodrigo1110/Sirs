@@ -119,8 +119,9 @@ message shareResponse{
 	bytes symmetricKey = 1;
 	repeated bytes publicKeys = 2;
 	repeated string wrongUserName = 3;
-	bytes timeStamp = 4;
-	bytes hashMessage = 5;
+	repeated string wrongUserNamePermission = 4;
+	bytes timeStamp = 5;
+	bytes hashMessage = 6;
 }
 
 message shareKeyRequest{
@@ -144,6 +145,10 @@ message unshareRequest{
 }
 
 message unshareResponse{
+	repeated string wrongUserName = 1;
+	repeated string wrongUserNamePermission = 2;
+	bytes timeStamp = 3;
+	bytes hashMessage = 4;
 }
 
 message deleteFileRequest{

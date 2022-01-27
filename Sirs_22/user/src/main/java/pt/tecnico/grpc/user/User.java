@@ -114,7 +114,7 @@ public class User {
 					switch (command[0]) {
 						case "logout":
 							user.logout();
-							System.out.println("You have to wait " + (attempts)*5 + " seconds to try to login again.");
+							System.out.println("Waiting " + (attempts)*5 + " seconds.");
 							TimeUnit.SECONDS.sleep(attempts*5);
 							break;
 						case "createFile":

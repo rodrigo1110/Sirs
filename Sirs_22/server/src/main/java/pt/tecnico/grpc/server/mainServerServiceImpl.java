@@ -236,9 +236,10 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override 
 	public void unshare(UserMainServer.unshareRequest request, StreamObserver<UserMainServer.unshareResponse> responseObserver){
 		try{
-			server.unshare(request.getFileId(),request.getCookie(),request.getUserNameList(),request.getTimeStamp(),request.getHashMessage());
+			UserMainServer.unshareResponse response = server.unshare(request.getFileId(),
+			request.getCookie(),request.getUserNameList(),request.getTimeStamp(),
+			request.getHashMessage());
 
-			UserMainServer.unshareResponse response = UserMainServer.unshareResponse.newBuilder().build();
 			responseObserver.onNext(response); 
 			responseObserver.onCompleted();	
 		}

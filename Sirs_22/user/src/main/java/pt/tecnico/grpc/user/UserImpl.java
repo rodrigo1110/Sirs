@@ -2,6 +2,8 @@ package pt.tecnico.grpc.user;
 
 import pt.tecnico.grpc.UserMainServer;
 import pt.tecnico.grpc.UserMainServerServiceGrpc;
+import pt.tecnico.grpc.user.Security;
+
 
 import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
@@ -42,6 +44,7 @@ import java.math.BigInteger;
 
 
 public class UserImpl {
+
     private String host;
 	private int port;
     private String cookie = "";
@@ -82,301 +85,6 @@ public class UserImpl {
 		System.out.println(response);
     }
 
-    public static Key getPublicKey(String filename) throws Exception {
-        
-        byte[] keyBytes = Files.readAllBytes(Paths.get(filename));
-
-        X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
-        KeyFactory kf = KeyFactory.getInstance("RSA");
-        return kf.generatePublic(spec);
-    }
-
-
-    public static Key getPrivateKey(String filename) throws Exception {
-
-        byte[] keyBytes = Files.readAllBytes(Paths.get(filename));
-
-        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
-        KeyFactory kf = KeyFactory.getInstance("RSA");
-        return kf.generatePrivate(spec);
-    }
-
-
-    public void createKeys(String username) throws NoSuchAlgorithmException, Exception{
-        //Generate key pair
-        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
-        keyGen.initialize(1024);
-        KeyPair pair = keyGen.generateKeyPair();
-        Key privateKey1 = pair.getPrivate();
-        Key publicKey1 = pair.getPublic();
-
-        File file = null;
-        file = new File("publicKey/" + username + "-PublicKey");
-        if (file.createNewFile()) {
-            System.out.println("New file created: " + file.getName());
-            OutputStream os = new FileOutputStream(file);
-            os.write(publicKey1.getEncoded());
-            os.close();
-        } 
-        else{
-            System.out.println("Test: existent file.");
-            return;
-        }
-
-        file = new File("privateKey/" + username + "-PrivateKey");
-        if (file.createNewFile()) {
-            System.out.println("New file created: " + file.getName());
-            OutputStream os = new FileOutputStream(file);
-            os.write(privateKey1.getEncoded());
-            os.close();
-        } 
-        else{
-            System.out.println("Test: existent file.");
-            return;
-        }
-    }
-
-
-    public byte[] encryptKey(byte[] inputArray, Key key) throws Exception {
-        Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.ENCRYPT_MODE, key);
-
-        int inputLength = inputArray.length;
-        int MAX_ENCRYPT_BLOCK = 117;
-        int offSet = 0;
-        byte[] resultBytes = {};
-        byte[] iteration = {};
-
-        while (inputLength-offSet> 0) {
-            if (inputLength-offSet> MAX_ENCRYPT_BLOCK) {
-                iteration = cipher.doFinal(inputArray, offSet, MAX_ENCRYPT_BLOCK);
-                offSet += MAX_ENCRYPT_BLOCK;
-            } else {
-                iteration = cipher.doFinal(inputArray, offSet, inputLength-offSet);
-                offSet = inputLength;
-            }
-            resultBytes = Arrays.copyOf(resultBytes, resultBytes.length + iteration.length);
-            System.arraycopy(iteration, 0, resultBytes, resultBytes.length-iteration.length, iteration.length);
-        }
-
-        return resultBytes;
-    }
-
-
-
-    public byte[] decryptKey(byte[] inputArray, Key key) throws Exception {
-        Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.DECRYPT_MODE, key);
-
-        int inputLength = inputArray.length;
-        System.out.println("Decrypted bytes:" + inputLength);
-        int MAX_ENCRYPT_BLOCK = 128;
-        int offSet = 0;
-        byte[] resultBytes = {};
-        byte[] iteration = {};
-
-        while (inputLength-offSet> 0) {
-            if (inputLength-offSet> MAX_ENCRYPT_BLOCK) {
-                iteration = cipher.doFinal(inputArray, offSet, MAX_ENCRYPT_BLOCK);
-                offSet += MAX_ENCRYPT_BLOCK;
-            } else {
-                iteration = cipher.doFinal(inputArray, offSet, inputLength-offSet);
-                offSet = inputLength;
-            }
-            resultBytes = Arrays.copyOf(resultBytes, resultBytes.length + iteration.length);
-            System.arraycopy(iteration, 0, resultBytes, resultBytes.length-iteration.length, iteration.length);
-        }
-
-        return resultBytes;
-    }
-
-
-
-
-
-
-
-
-    public static Key createAESKey() throws Exception{
-        SecureRandom securerandom = new SecureRandom();
-        KeyGenerator keygenerator = KeyGenerator.getInstance("AES");
- 
-        keygenerator.init(256, securerandom);
-        SecretKey key = keygenerator.generateKey();
- 
-        return key;
-    }
- 
-    public byte[] createInitializationVector(){
-        byte[] initializationVector = new byte[16];
-        SecureRandom secureRandom = new SecureRandom();
-
-        secureRandom.nextBytes(initializationVector);
-
-        return initializationVector;
-    }
- 
-
-    public byte[] encryptAES(byte[] plainText, Key secretKey, byte[] initializationVector) throws Exception{
-        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
-        IvParameterSpec ivParameterSpec = new IvParameterSpec(initializationVector);
- 
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivParameterSpec);
- 
-        return cipher.doFinal(plainText);
-    }
- 
-    
-    public byte[] decryptAES(byte[] cipherText, Key secretKey, byte[] initializationVector)throws Exception{
-        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
-        IvParameterSpec ivParameterSpec = new IvParameterSpec(initializationVector);
- 
-        cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec);
- 
-       return cipher.doFinal(cipherText);
-    }
-
-
-
-
-    //encrypt with public and private key --> server and user
-    public byte[] encrypt(Key key, byte[] text) {
-        try {
-            Cipher rsa;
-            rsa = Cipher.getInstance("RSA");
-            rsa.init(Cipher.ENCRYPT_MODE, key);
-            return rsa.doFinal(text); //text.getBytes()
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    //derypt with public and private key --> server and user
-    public String decrypt(Key key, byte[] buffer) {
-        try {
-            Cipher rsa;
-            rsa = Cipher.getInstance("RSA");
-            rsa.init(Cipher.DECRYPT_MODE, key);
-            byte[] value = rsa.doFinal(buffer);
-            return new String(value);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-
-
-
-
-    public String hashMessage(String secretString) throws NoSuchAlgorithmException, NoSuchProviderException{
-        String hashtext = null;
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-
-        byte[] messageDigest = md.digest(secretString.getBytes());
-        hashtext = convertToHex(messageDigest);
-        return hashtext;
-    }
-
-
-    private boolean verifyMessageHash(byte[] Message,String hashMessage) throws Exception{
-        String message = new String(Message);
-        if((hashMessage(message).compareTo(hashMessage)) == 0)
-            return true;
-        return false;   
-    }
-
-
-    private String convertToHex(byte[] messageDigest) {
-        BigInteger value = new BigInteger(1, messageDigest);
-        String hexText = value.toString(16);
-
-        while (hexText.length() < 32) 
-            hexText = "0".concat(hexText);
-        return hexText;
-    }
-
-
-    public byte[] getTimeStampBytes(){
-        Timestamp timestampNow = new Timestamp(System.currentTimeMillis());
-        long timeStampLong = timestampNow.getTime();
-        return Long.toString(timeStampLong).getBytes();
-    }
-
-
-    private boolean verifyTimeStamp(ByteString sentTimeStamp, Key key)  throws Exception{
-        String timeStampDecrypted= decrypt(key, sentTimeStamp.toByteArray());
-        long sentTimeStampLong = Long.parseLong(timeStampDecrypted);
-        
-        Timestamp timestampNow = new Timestamp(System.currentTimeMillis());
-        long timeStampLong = timestampNow.getTime();
-
-        if((timeStampLong - sentTimeStampLong) < 32000000)
-            return true;
-        return false;
-    }
-
-
-
-
-
-    public String safePassword(){
-
-        System.out.print("Please, enter your password: ");
-
-        StringBuilder sb = new StringBuilder("");
-        char [] input = System.console().readPassword();
-
-        boolean hasLower , hasUpper, hasDigit, hasSpecialCharacter;
-        boolean safe = true; //so para testar mais rapido, colocar a false depois!!!
-        while(safe == false){
-            hasLower = false;
-            hasUpper = false;
-            hasDigit = false;
-            hasSpecialCharacter = false;
-            
-            int len = input.length;
-            if(len<10){
-                System.out.println("Password must be have at least 10 characters(Lower and UpperCase, with at least 1 digit and a special character) ");
-                System.out.print("Please, enter your password: ");
-                input = System.console().readPassword();
-            }
-            else{
-                for(char i : input){
-                    if(i >= 65 && i <= 90){
-                        hasUpper = true;
-                    }
-                    else if(i >= 97 && i <= 122){
-                        hasLower = true;
-                    }
-                    else if(i >= 48 && i <= 57){
-                        hasDigit = true;
-                    }
-                    else if((i >= 33 && i <= 47) || (i >= 58 && i <= 64) || (i >= 91 || i <= 96))
-                        hasSpecialCharacter = true;
-                }
-
-                if(hasUpper && hasLower && hasDigit && hasSpecialCharacter){
-                    safe = true;
-                    break;
-                }
-                System.out.println("Password must be have at least 10 characters(Lower and UpperCase, with at least 1 digit and a special character) ");
-                System.out.print("Please, enter your password: ");
-                input = System.console().readPassword();
-                
-            }
-            
-        }
-        sb.append(input);
-        String password = sb.toString();
-        return password;
-    }
-
-
-
 
     public void signup() throws Exception{
 		
@@ -393,11 +101,11 @@ public class UserImpl {
             userName = System.console().readLine();
         }
        
-        String password = safePassword();
+        String password = Security.safePassword();
 
         //---------------------------------------------------------------------------------------
         try{
-            createKeys(userName);
+            Security.createKeys(userName);
             
         }catch(NoSuchAlgorithmException e) {
             System.out.println("No algorithm");
@@ -406,7 +114,7 @@ public class UserImpl {
         }
         
         if(!hasServerPublicKey){
-            serverPublicKey = getPublicKey("../server/rsaPublicKey");
+            serverPublicKey = Security.getPublicKey("../server/rsaPublicKey");
             hasServerPublicKey = true;
         }
 
@@ -414,15 +122,15 @@ public class UserImpl {
 
         String targetPublic = "publicKey/" + userName + "-PublicKey";
         String targetPrivate = "privateKey/" + userName + "-PrivateKey";
-        publicKey = getPublicKey(targetPublic);
-        privateKey = getPrivateKey(targetPrivate);
+        publicKey = Security.getPublicKey(targetPublic);
+        privateKey = Security.getPrivateKey(targetPrivate);
         
-        ByteString encryptedPassword = ByteString.copyFrom(encrypt(serverPublicKey, password.getBytes()));
-        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+        ByteString encryptedPassword = ByteString.copyFrom(Security.encrypt(serverPublicKey, password.getBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
         String path = "publicKey/" + userName + "-PublicKey";
         byte[] clientPublicKeyBytes = Files.readAllBytes(Paths.get(path));
-        ByteString encryptedPublicKey = ByteString.copyFrom(encryptKey(clientPublicKeyBytes, serverPublicKey));
+        ByteString encryptedPublicKey = ByteString.copyFrom(Security.encryptKey(clientPublicKeyBytes, serverPublicKey));
         
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
         messageBytes.write(userName.getBytes());
@@ -433,8 +141,8 @@ public class UserImpl {
         messageBytes.write(":".getBytes());
         messageBytes.write(encryptedTimeStamp.toByteArray());
         
-        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
-        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+        String hashMessage = Security.hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(Security.encrypt(privateKey, hashMessage.getBytes()));
 
 
         File tls_cert = new File("../server/tlscert/server.crt");
@@ -474,21 +182,21 @@ public class UserImpl {
         
 
         if(!hasServerPublicKey){
-            serverPublicKey = getPublicKey("../server/rsaPublicKey");
+            serverPublicKey = Security.getPublicKey("../server/rsaPublicKey");
             hasServerPublicKey = true;
         }
         try{
             String targetPublic = "publicKey/" + userName + "-PublicKey";
             String targetPrivate = "privateKey/" + userName + "-PrivateKey";
-            publicKey = getPublicKey(targetPublic);
-            privateKey = getPrivateKey(targetPrivate);
+            publicKey = Security.getPublicKey(targetPublic);
+            privateKey = Security.getPrivateKey(targetPrivate);
         }catch(NoSuchFileException e){
             System.out.println("User not existent locally. Must sign up locally first.");
             return;
         }
 
-        ByteString encryptedPassword = ByteString.copyFrom(encrypt(serverPublicKey, password.getBytes()));
-        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+        ByteString encryptedPassword = ByteString.copyFrom(Security.encrypt(serverPublicKey, password.getBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
         messageBytes.write(userName.getBytes());
@@ -497,8 +205,8 @@ public class UserImpl {
         messageBytes.write(":".getBytes());
         messageBytes.write(encryptedTimeStamp.toByteArray());
 
-        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
-        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+        String hashMessage = Security.hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(Security.encrypt(privateKey, hashMessage.getBytes()));
 
         File tls_cert = new File("../server/tlscert/server.crt");
         channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
@@ -512,11 +220,11 @@ public class UserImpl {
         UserMainServer.loginResponse response = stub.login(request);
 
         byte[] cookie = response.getCookie().toByteArray();
-        String cookieDecrypted = decrypt(privateKey, cookie);
+        String cookieDecrypted = Security.decrypt(privateKey, cookie);
         byte[] hashCookie = response.getHashCookie().toByteArray();
-        String hashCookieDecrypted = decrypt(serverPublicKey, hashCookie);
+        String hashCookieDecrypted = Security.decrypt(serverPublicKey, hashCookie);
 
-        if(!verifyMessageHash(cookieDecrypted.getBytes(), hashCookieDecrypted)){
+        if(!(Security.verifyMessageHash(cookieDecrypted.getBytes(), hashCookieDecrypted))){
             System.out.println("Response message corrupted.");
             return;
         }
@@ -532,19 +240,19 @@ public class UserImpl {
 
     public void logout() throws Exception{
  		      
-        String hashCookie = hashMessage(cookie);
-        ByteString encryptedhashCookie = ByteString.copyFrom(encrypt(serverPublicKey, hashCookie.getBytes()));
+        String hashCookie = Security.hashMessage(cookie);
+        ByteString encryptedhashCookie = ByteString.copyFrom(Security.encrypt(serverPublicKey, hashCookie.getBytes()));
 
 
-        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
         messageBytes.write(encryptedhashCookie.toByteArray());
         messageBytes.write(":".getBytes());
         messageBytes.write(encryptedTimeStamp.toByteArray());
 
-        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
-        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+        String hashMessage = Security.hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(Security.encrypt(privateKey, hashMessage.getBytes()));
         
         
         UserMainServer.logoutRequest request = UserMainServer.logoutRequest.
@@ -574,18 +282,15 @@ public class UserImpl {
         System.out.println("When you are done, press 'x'.");
         Integer counter = 1;
         while(!userName.equals("x")){
-            System.out.print("Username" + counter + ": ");
+            System.out.print("Username " + counter + ": ");
             counter++;
             userName = System.console().readLine();
-            listOfUsers.add(userName);
+            if(!listOfUsers.contains(userName)){
+                listOfUsers.add(userName);
+            }
         }
         //delete de 'x'
         listOfUsers.remove(listOfUsers.size()-1);
-
-        //para testar
-        System.out.println("list of users to string: " + listOfUsers.toString());
-        System.out.println(listOfUsers.toString());
-        System.out.println(listOfUsers.size());
 
         if(listOfUsers.size() == 0){
             System.out.println("You must insert at least one user to share this file with.");
@@ -595,9 +300,9 @@ public class UserImpl {
         //-------------File Obtained from Uploads Directory
         
 
-        String hashCookie = hashMessage(cookie);
-        ByteString encryptedhashCookie = ByteString.copyFrom(encrypt(serverPublicKey, hashCookie.getBytes()));
-        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+        String hashCookie = Security.hashMessage(cookie);
+        ByteString encryptedhashCookie = ByteString.copyFrom(Security.encrypt(serverPublicKey, hashCookie.getBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
 
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
@@ -609,8 +314,8 @@ public class UserImpl {
         messageBytes.write(":".getBytes());
         messageBytes.write(encryptedTimeStamp.toByteArray());
 
-        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
-        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+        String hashMessage = Security.hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(Security.encrypt(privateKey, hashMessage.getBytes()));
 
 
         UserMainServer.shareRequest request = UserMainServer.shareRequest.newBuilder().
@@ -628,17 +333,18 @@ public class UserImpl {
         byte[] encryptedTimeStampByteArray = response.getTimeStamp().toByteArray();
         List<ByteString> encryptedPublicKeyList = response.getPublicKeysList(); //ENVIAR ISTO ASSIM COMO STRING DO SERVDIOR
         List<String> wrongUserList = response.getWrongUserNameList();
+        List<String> wrongUserListPermissions = response.getWrongUserNamePermissionList();
 
-        byte[] SymmetricKeyByteArray = decryptKey(encryptedSymmetricKeyByteArray, privateKey);
+
+        byte[] SymmetricKeyByteArray = Security.decryptKey(encryptedSymmetricKeyByteArray, privateKey);
         
         List<byte[]> listOfPublicKeys = new ArrayList<byte[]>();
         
         for(int i = 0; i < response.getPublicKeysList().size(); i++){
-            listOfPublicKeys.add(decryptKey(response.getPublicKeys(i).toByteArray(), privateKey)); //do lado ddo servidor temos de encriptar cada elemento da lista individualmente
+            listOfPublicKeys.add(Security.decryptKey(response.getPublicKeys(i).toByteArray(), privateKey)); //do lado ddo servidor temos de encriptar cada elemento da lista individualmente
         }
 
-
-        if(!verifyTimeStamp(response.getTimeStamp(),serverPublicKey)){
+        if(!(Security.verifyTimeStamp(response.getTimeStamp(),serverPublicKey))){
             System.out.println("Response took to long");
             return;
         }
@@ -654,20 +360,47 @@ public class UserImpl {
         }
         responseBytes.write(wrongUserList.toString().getBytes());
         responseBytes.write(":".getBytes());
+        responseBytes.write(wrongUserListPermissions.toString().getBytes());
+        responseBytes.write(":".getBytes());
         responseBytes.write(encryptedTimeStampByteArray);
 
-        String hashResponseString = decrypt(serverPublicKey, encryptedhashResponseByteArray);
-        if(!verifyMessageHash(responseBytes.toByteArray(), hashResponseString)){
+        String hashResponseString = Security.decrypt(serverPublicKey, encryptedhashResponseByteArray);
+        if(!(Security.verifyMessageHash(responseBytes.toByteArray(), hashResponseString))){
             System.out.println("Response integrity compromised");
         } 
 
+        int removedUsers = 0;
+
+        List<String> listOfUsersToCompare = new ArrayList<>(listOfUsers);
         for (String wrongUserName : wrongUserList) {
-            listOfUsers.remove(wrongUserName);
+            if(listOfUsers.remove(wrongUserName)){
+                removedUsers++;
+            }
             System.out.println("User " + wrongUserName + " doesn't exist. You can't share the file " + fileName + " with this user.");
+        }
+        for (String wrongUserName : wrongUserListPermissions) {
+            if(listOfUsers.remove(wrongUserName)){
+                removedUsers++;
+            }
+            if(wrongUserName.compareTo(this.username) == 0){
+                System.out.println("You can 't share a file with yourself.");
+            }
+            else{
+                System.out.println("User " + wrongUserName + " already has permission to access the file " + fileName + ".");
+        
+            }
         }
 
         shareKey(listOfPublicKeys, listOfUsers, SymmetricKeyByteArray, fileName, encryptedhashCookie);
-        System.out.println("The file " + fileName + " was successfully shared.");
+
+        if(listOfUsersToCompare.size() != removedUsers){
+                System.out.println("The file " + fileName + " was successfully shared with: ");
+                for (String user : listOfUsersToCompare) {
+                    if(!wrongUserList.contains(user) &&  !wrongUserListPermissions.contains(user) && (user.compareTo(this.username)) != 0){
+                        System.out.println("- " + user);
+                    }
+                }
+        }
     }
 
     
@@ -683,10 +416,10 @@ public class UserImpl {
             X509EncodedKeySpec spec = new X509EncodedKeySpec(listOfPublicKeys.get(i));
             KeyFactory kf = KeyFactory.getInstance("RSA");
             Key userPublicKey = kf.generatePublic(spec);
-            listOfEncryptedSymmetricKeysByteString.add(ByteString.copyFrom(encryptKey(symmetricKey, userPublicKey)));
+            listOfEncryptedSymmetricKeysByteString.add(ByteString.copyFrom(Security.encryptKey(symmetricKey, userPublicKey)));
         }
 
-        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
         
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
@@ -704,8 +437,8 @@ public class UserImpl {
         messageBytes.write(":".getBytes());
         messageBytes.write(encryptedTimeStamp.toByteArray());
 
-        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
-        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+        String hashMessage = Security.hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(Security.encrypt(privateKey, hashMessage.getBytes()));
     
         UserMainServer.shareKeyRequest request = UserMainServer.shareKeyRequest.newBuilder().
             setFileId(fileName).addAllSymmetricKey(listOfEncryptedSymmetricKeysByteString).addAllUserNames(listOfUsers).setCookie(encryptedHashCookie).
@@ -730,7 +463,7 @@ public class UserImpl {
         System.out.println("When you are done, press 'x'.");
         Integer counter = 1;
         while(!userName.equals("x")){
-            System.out.print("Username" + counter + ": ");
+            System.out.print("Username " + counter + ": ");
             counter++;
             userName = System.console().readLine();
             listOfUsers.add(userName);
@@ -738,14 +471,9 @@ public class UserImpl {
         //delete de 'x'
          listOfUsers.remove(listOfUsers.size()-1);
 
-         //para testar
-        System.out.println("list of users to string: " + listOfUsers.toString());
-        System.out.println(listOfUsers.toString());
-        System.out.println(listOfUsers.size());
-
-        String hashCookie = hashMessage(cookie);
-        ByteString encryptedhashCookie = ByteString.copyFrom(encrypt(serverPublicKey, hashCookie.getBytes()));
-        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+        String hashCookie = Security.hashMessage(cookie);
+        ByteString encryptedhashCookie = ByteString.copyFrom(Security.encrypt(serverPublicKey, hashCookie.getBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
         messageBytes.write(fileName.getBytes());
@@ -756,16 +484,47 @@ public class UserImpl {
         messageBytes.write(":".getBytes());
         messageBytes.write(encryptedTimeStamp.toByteArray());
 
-        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
-        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+        String hashMessage = Security.hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(Security.encrypt(privateKey, hashMessage.getBytes()));
         
         UserMainServer.unshareRequest request = UserMainServer.unshareRequest.newBuilder().setFileId(fileName)
             .addAllUserName(listOfUsers).setCookie(encryptedhashCookie)
             .setTimeStamp(encryptedTimeStamp).setHashMessage(encryptedHashMessage).build();
     
-        stub.unshare(request);
+        UserMainServer.unshareResponse response = stub.unshare(request);
 
-        System.out.println("The file " + fileName + " was successfully unshared.");
+        byte[] encryptedhashResponseByteArray = response.getHashMessage().toByteArray();
+        byte[] encryptedTimeStampByteArray = response.getTimeStamp().toByteArray();
+        List<String> wrongUserList = response.getWrongUserNameList();
+        
+        if(!(Security.verifyTimeStamp(response.getTimeStamp(),serverPublicKey))){
+            System.out.println("Response took to long");
+            return;
+        }
+
+        ByteArrayOutputStream responseBytes = new ByteArrayOutputStream();
+
+        responseBytes.write(wrongUserList.toString().getBytes());
+        responseBytes.write(":".getBytes());
+        responseBytes.write(encryptedTimeStampByteArray);
+
+        String hashResponseString = Security.decrypt(serverPublicKey, encryptedhashResponseByteArray);
+
+        if(!(Security.verifyMessageHash(responseBytes.toByteArray(), hashResponseString))){
+            System.out.println("Response integrity compromised");
+        } 
+        for (String wrongUserName : wrongUserList) {
+            System.out.println("User " + wrongUserName + " doesn't exist. You can't unshare the file " + fileName + " with this user.");
+        }
+
+        if(listOfUsers.size() != wrongUserList.size()){
+            System.out.println("The file " + fileName + " was successfully unshared with: ");
+            for (String user : listOfUsers) {
+                if(!wrongUserList.contains(user)){
+                    System.out.println("- " + user);
+                }
+            }
+        }
     }
     
 
@@ -893,9 +652,9 @@ public class UserImpl {
         System.out.println("------------------------------");
 
         
-        String hashCookie = hashMessage(cookie);
-        ByteString encryptedhashCookie = ByteString.copyFrom(encrypt(serverPublicKey, hashCookie.getBytes()));
-        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+        String hashCookie = Security.hashMessage(cookie);
+        ByteString encryptedhashCookie = ByteString.copyFrom(Security.encrypt(serverPublicKey, hashCookie.getBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
 
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
@@ -905,8 +664,8 @@ public class UserImpl {
         messageBytes.write(":".getBytes());
         messageBytes.write(encryptedTimeStamp.toByteArray());
 
-        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
-        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+        String hashMessage = Security.hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(Security.encrypt(privateKey, hashMessage.getBytes()));
 
 
         UserMainServer.downloadRequest request = UserMainServer.downloadRequest.newBuilder().
@@ -922,7 +681,7 @@ public class UserImpl {
         byte[] encryptedhashResponseByteArray = response.getHashMessage().toByteArray();
         byte[] encryptedTimeStampByteArray = response.getTimeStamp().toByteArray();
         
-        if(!verifyTimeStamp(response.getTimeStamp(),serverPublicKey)){
+        if(!(Security.verifyTimeStamp(response.getTimeStamp(),serverPublicKey))){
             System.out.println("Response took to long");
             return;
         }
@@ -936,23 +695,23 @@ public class UserImpl {
         responseBytes.write(":".getBytes());
         responseBytes.write(encryptedTimeStampByteArray);
 
-        String hashResponseString = decrypt(serverPublicKey, encryptedhashResponseByteArray);
-        if(!verifyMessageHash(responseBytes.toByteArray(), hashResponseString)){
+        String hashResponseString = Security.decrypt(serverPublicKey, encryptedhashResponseByteArray);
+        if(!(Security.verifyMessageHash(responseBytes.toByteArray(), hashResponseString))){
             System.out.println("Response integrity compromised");
             return;
         }
 
-        byte[] decryptedSymmetricKeyByteArray =  decryptKey(encryptedSymmetricKeyByteArray, privateKey);
+        byte[] decryptedSymmetricKeyByteArray = Security.decryptKey(encryptedSymmetricKeyByteArray, privateKey);
         SecretKey decryptedSymmetricKey = new SecretKeySpec(decryptedSymmetricKeyByteArray, 0, decryptedSymmetricKeyByteArray.length, "AES");
 
-        byte[] decryptedFileContentByteArray = decryptAES(encryptedFileContentByteArray, decryptedSymmetricKey, initializationVectorByteArray);
+        byte[] decryptedFileContentByteArray = Security.decryptAES(encryptedFileContentByteArray, decryptedSymmetricKey, initializationVectorByteArray);
 
         downloadLocally(fileName,decryptedFileContentByteArray);
     }
 
 
     public UserMainServer.isUpdateResponse isUpdate(String fileName, ByteString encryptedHashCookie) throws Exception{
-        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
         messageBytes.write(fileName.getBytes());
@@ -961,8 +720,8 @@ public class UserImpl {
         messageBytes.write(":".getBytes());
         messageBytes.write(encryptedTimeStamp.toByteArray());
 
-        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
-        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+        String hashMessage = Security.hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(Security.encrypt(privateKey, hashMessage.getBytes()));
 
 
         UserMainServer.isUpdateRequest request = UserMainServer.isUpdateRequest.newBuilder().
@@ -976,7 +735,7 @@ public class UserImpl {
         byte[] encryptedhashResponseByteArray = response.getHashMessage().toByteArray();
         byte[] encryptedTimeStampByteArray = response.getTimeStamp().toByteArray();
         
-        if(!verifyTimeStamp(response.getTimeStamp(),serverPublicKey)){
+        if(!(Security.verifyTimeStamp(response.getTimeStamp(),serverPublicKey))){
             System.out.println("Response took to long.");
             return null;
         }
@@ -990,8 +749,8 @@ public class UserImpl {
         responseBytes.write(":".getBytes());
         responseBytes.write(encryptedTimeStampByteArray);
 
-        String hashResponseString = decrypt(serverPublicKey, encryptedhashResponseByteArray);
-        if(!verifyMessageHash(responseBytes.toByteArray(), hashResponseString)){
+        String hashResponseString = Security.decrypt(serverPublicKey, encryptedhashResponseByteArray);
+        if(!(Security.verifyMessageHash(responseBytes.toByteArray(), hashResponseString))){
             System.out.println("Response integrity compromised");
             return null;
         }
@@ -1038,8 +797,8 @@ public class UserImpl {
             return;
         }
 
-        String hashCookie = hashMessage(cookie);
-        ByteString encryptedHashCookie = ByteString.copyFrom(encrypt(serverPublicKey, hashCookie.getBytes()));
+        String hashCookie = Security.hashMessage(cookie);
+        ByteString encryptedHashCookie = ByteString.copyFrom(Security.encrypt(serverPublicKey, hashCookie.getBytes()));
 
         UserMainServer.isUpdateResponse response = isUpdate(fileName,encryptedHashCookie);
 
@@ -1050,21 +809,21 @@ public class UserImpl {
         if(response == null)
             return;
         if(response.getIsUpdate()){
-            symmetricKeyArray = decryptKey(response.getSymmetricKey().toByteArray(), privateKey);
+            symmetricKeyArray = Security.decryptKey(response.getSymmetricKey().toByteArray(), privateKey);
             SymmetricKey = new SecretKeySpec(symmetricKeyArray, 0, symmetricKeyArray.length, "AES");
             initializationVector = response.getInitializationVector().toByteArray();
         }
         else{
-            SymmetricKey = createAESKey();
+            SymmetricKey = Security.createAESKey();
             symmetricKeyArray = SymmetricKey.getEncoded(); //se der erro ---> outra forma
-            initializationVector = createInitializationVector();
+            initializationVector = Security.createInitializationVector();
         }
-        byte[] encryptedFileContentBytes = encryptAES(byteArray, SymmetricKey, initializationVector);
+        byte[] encryptedFileContentBytes = Security.encryptAES(byteArray, SymmetricKey, initializationVector);
         ByteString encryptedFileContentByteString = ByteString.copyFrom(encryptedFileContentBytes);        
         
-        ByteString encryptedSymmetricKey = ByteString.copyFrom(encryptKey(symmetricKeyArray, publicKey));
+        ByteString encryptedSymmetricKey = ByteString.copyFrom(Security.encryptKey(symmetricKeyArray, publicKey));
         ByteString initializationVectorByteString = ByteString.copyFrom(initializationVector);
-        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
         
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
         messageBytes.write(fileName.getBytes());
@@ -1079,8 +838,8 @@ public class UserImpl {
         messageBytes.write(":".getBytes());
         messageBytes.write(encryptedTimeStamp.toByteArray());
 
-        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
-        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+        String hashMessage = Security.hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(Security.encrypt(privateKey, hashMessage.getBytes()));
         
         UserMainServer.uploadRequest request = UserMainServer.uploadRequest.newBuilder().
         setFileId(fileName).setFileContent(encryptedFileContentByteString).
@@ -1113,8 +872,8 @@ public class UserImpl {
             return;
         }       
         
-        ByteString encryptedPassword = ByteString.copyFrom(encrypt(serverPublicKey, password.getBytes()));
-        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+        ByteString encryptedPassword = ByteString.copyFrom(Security.encrypt(serverPublicKey, password.getBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
         messageBytes.write(userName.getBytes());
@@ -1123,8 +882,8 @@ public class UserImpl {
         messageBytes.write(":".getBytes());
         messageBytes.write(encryptedTimeStamp.toByteArray());
 
-        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
-        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+        String hashMessage = Security.hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(Security.encrypt(privateKey, hashMessage.getBytes()));
         
         
         UserMainServer.deleteUserRequest request = UserMainServer.deleteUserRequest.newBuilder().setUserName(userName)
@@ -1133,21 +892,12 @@ public class UserImpl {
 
         File file = new File("publicKey/" + username + "-PublicKey");
 
-        if (file.delete()) {
-            System.out.println("Public Key file deleted successfully.");
-        }
-        else 
-            System.out.println("Failed to delete the file");
-
+        file.delete();
 
         file = new File("privateKey/" + username + "-PrivateKey");
 
-        if (file.delete()) {
-            System.out.println("Private Key file deleted successfully.");
-        }
-        else 
-            System.out.println("Failed to delete the file");
-            
+        file.delete();
+
         System.out.println("User deleted successfully!");
         cookie = "";
     }
@@ -1163,11 +913,11 @@ public class UserImpl {
         System.out.println("------------------------------");
 
         
-        String hashCookie = hashMessage(cookie);
-        ByteString encryptedhashCookie = ByteString.copyFrom(encrypt(serverPublicKey, hashCookie.getBytes()));
+        String hashCookie = Security.hashMessage(cookie);
+        ByteString encryptedhashCookie = ByteString.copyFrom(Security.encrypt(serverPublicKey, hashCookie.getBytes()));
 
 
-        ByteString encryptedTimeStamp = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+        ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
         messageBytes.write(fileName.getBytes());
@@ -1176,8 +926,8 @@ public class UserImpl {
         messageBytes.write(":".getBytes());
         messageBytes.write(encryptedTimeStamp.toByteArray());
 
-        String hashMessage = hashMessage(new String(messageBytes.toByteArray()));
-        ByteString encryptedHashMessage = ByteString.copyFrom(encrypt(privateKey, hashMessage.getBytes()));
+        String hashMessage = Security.hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(Security.encrypt(privateKey, hashMessage.getBytes()));
 
         
         UserMainServer.deleteFileRequest request = UserMainServer.deleteFileRequest.newBuilder().setFileId(fileName)

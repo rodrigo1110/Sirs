@@ -1459,6 +1459,8 @@ public class mainServer {
             List<ByteString> listOfEncryptedPublicKeysByteString = new ArrayList<>();
             
             List<String> listOfWrongNames = new ArrayList<String>();
+            List<String> listOfWrongNamesPermissions = new ArrayList<String>();
+
             
             if(checkIfFileExists(fileID)){
                 if(checkFileOwner(fileID, dbUserName)){
@@ -1474,7 +1476,7 @@ public class mainServer {
                                 listOfEncryptedPublicKeysByteString.add(ByteString.copyFrom(sharedUserEncryptedPublicKey)); 
                             }
                             else{  
-                                throw new UserAlreadyHasAccessException(userName);
+                                listOfWrongNamesPermissions.add(userName);
                             }
                         }
                         else{
@@ -1496,6 +1498,8 @@ public class mainServer {
             ByteString encryptedSymmetricKeyByteString =  ByteString.copyFrom(encryptedSymmetricKey);
             ByteString encryptedTimeStampByteString = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
 
+            System.out.println("timestamp no servidor SHARe " + encryptedTimeStampByteString);
+
             
             
             ByteArrayOutputStream responseBytes = new ByteArrayOutputStream();
@@ -1508,8 +1512,12 @@ public class mainServer {
             }
             responseBytes.write(listOfWrongNames.toString().getBytes());
             responseBytes.write(":".getBytes());
+            responseBytes.write(listOfWrongNamesPermissions.toString().getBytes());
+            responseBytes.write(":".getBytes());
             responseBytes.write(encryptedTimeStampByteString.toByteArray());
-        
+            
+            System.out.println("ENCRYPTED TUMESTAMP SHARE: " + encryptedTimeStampByteString);
+
             String hashResponse = hashString(new String(responseBytes.toByteArray()),new byte[0]);
             System.out.println("hash String calculated by server: " + hashResponse);
             ByteString encryptedHashResponse = ByteString.copyFrom(encrypt(privateKey, hashResponse.getBytes()));
@@ -1518,7 +1526,7 @@ public class mainServer {
 
             UserMainServer.shareResponse response = UserMainServer.shareResponse.newBuilder()
             .setSymmetricKey(encryptedSymmetricKeyByteString).addAllPublicKeys(listOfEncryptedPublicKeysByteString).
-            addAllWrongUserName(listOfWrongNames).setTimeStamp(encryptedTimeStampByteString).
+            addAllWrongUserName(listOfWrongNames).addAllWrongUserNamePermission(listOfWrongNamesPermissions).setTimeStamp(encryptedTimeStampByteString).
             setHashMessage(encryptedHashResponse).build();
 
             return response;  
@@ -1635,7 +1643,7 @@ public class mainServer {
     
 
 
-    public void unshare(String fileID, ByteString cookie_bytes, List<String> users, ByteString timeStamp, ByteString hashMessage) throws Exception{ //se um dos nomes inseridos pelo user estiver errado, mais nenhum e adicionado, por causa da excecao.
+    public UserMainServer.unshareResponse unshare(String fileID, ByteString cookie_bytes, List<String> users, ByteString timeStamp, ByteString hashMessage) throws Exception{ //se um dos nomes inseridos pelo user estiver errado, mais nenhum e adicionado, por causa da excecao.
         
         try{
             verifyUsersTableStateDB(); 
@@ -1672,9 +1680,8 @@ public class mainServer {
             verifyPermissionsTableStateDB();
             verifyFilesTableStateDB(); 
             
-            //check if the file exists - done
-            //check if "I" am the owner of the file - done, need to update after cookie done
-            //check if user already had permission - done
+            List<String> listOfWrongNames = new ArrayList<String>();
+
             if(checkIfFileExists(fileID)){
                 if(checkFileOwner(fileID, dbUserName)){
                     for (String userName : users) {
@@ -1701,8 +1708,10 @@ public class mainServer {
                             else
                                 throw new UserAlreadyHasAccessException(userName);
                         }
-                        else
-                            throw new UserUnknownException(userName);
+                        else{
+                            System.out.println("nome errado server: " + userName);
+                            listOfWrongNames.add(userName);
+                        }
                     }
                 }
                 else
@@ -1710,6 +1719,29 @@ public class mainServer {
             }
             else
                 throw new FileUnknownException(fileID);
+        
+        ByteString encryptedTimeStampByteString = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+
+        System.out.println("timestamp no servidor UNSGARE " + encryptedTimeStampByteString);
+
+        ByteArrayOutputStream responseBytes = new ByteArrayOutputStream();
+        responseBytes = new ByteArrayOutputStream();
+        
+        responseBytes.write(listOfWrongNames.toString().getBytes());
+        responseBytes.write(":".getBytes());
+        responseBytes.write(encryptedTimeStampByteString.toByteArray());
+
+        System.out.println("ENCRYPTED TUMESTAMP UNSHARE: " + encryptedTimeStampByteString);
+
+        String hashResponse = hashString(new String(responseBytes.toByteArray()),new byte[0]);
+
+        ByteString encryptedHashResponse = ByteString.copyFrom(encrypt(privateKey, hashResponse.getBytes()));
+
+        UserMainServer.unshareResponse response = UserMainServer.unshareResponse.newBuilder().
+        addAllWrongUserName(listOfWrongNames).setTimeStamp(encryptedTimeStampByteString).
+        setHashMessage(encryptedHashResponse).build();
+        System.out.println("CHEGOU AQUI: RESPONDEU AO CLIENTE.");
+        return response;  
         }
         catch(SQLException e){
             System.out.println(e);
