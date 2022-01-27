@@ -95,11 +95,13 @@ public class User {
 						serverLeft = false;
 					}
 					else if((e.getMessage()).compareTo("INVALID_ARGUMENT: Wrong password.") == 0){
-						System.out.print(e.getStatus().getDescription());
+						System.out.println(e.getStatus().getDescription());
 						attempts++;
-						System.out.println(" You have to wait " + attempts*5 + " seconds to try to login again.");
-						TimeUnit.SECONDS.sleep(attempts*5);
-						System.out.println("You can login now.");
+						if(attempts > 2){
+							System.out.println("You have to wait " + (attempts-2)*5 + " seconds to try to login again.");
+							TimeUnit.SECONDS.sleep(attempts*5);
+							System.out.println("You can login now.");
+						}
 					}
 					else{
 						System.out.println(e.getStatus().getDescription());
