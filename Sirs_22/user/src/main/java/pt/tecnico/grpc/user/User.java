@@ -41,7 +41,6 @@ public class User {
 
 		String[] command;
 		String str;
-		Boolean serverLeft = true;
 		int attempts = 0;
 
 		File tls_cert = new File("../server/tlscert/server.crt");
@@ -95,15 +94,17 @@ public class User {
 
 					if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){
 
-						System.out.println("Ransmomware attack detected.");
-
-						if(!serverLeft)
-							System.exit(0);
+						System.out.println("Ransmomware attack detected. Please retry operation");
 
 						user.setTarget(backupHost, port + 2);
 						TimeUnit.SECONDS.sleep(1);
-						serverLeft = false;
 					}
+
+					else if((e.getStatus().getCode().equals(Status.UNAVAILABLE.getCode()))){ 
+						System.out.println("Full Ransmomware attack detected. System shutting down...");
+						System.exit(0);	
+					}
+
 					else if((e.getMessage()).compareTo("INVALID_ARGUMENT: Wrong password.") == 0){
 
 						System.out.println(e.getStatus().getDescription());
@@ -199,15 +200,15 @@ public class User {
 				} catch(StatusRuntimeException e){
 
 					if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){
-
-						System.out.println("Ransmomware attack detected.");
-
-						if(!serverLeft)
-							System.exit(0);
+						
+						System.out.println("Ransmomware attack detected. Please retry operation.");
 
 						user.setTarget(backupHost, port+2);
 						TimeUnit.SECONDS.sleep(1);
-						serverLeft = false;
+					}
+					else if((e.getStatus().getCode().equals(Status.UNAVAILABLE.getCode()))){
+						System.out.println("Full Ransmomware attack detected. System shutting down...");
+						System.exit(0);	
 					}
 					else{
 						System.out.println(e.getStatus().getDescription());
