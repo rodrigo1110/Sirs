@@ -978,7 +978,6 @@ public class mainServer {
             if(!Security.verifyTimeStamp(timeStamp,userPublicKey))
                 throw new TimestampException();
 
-
             ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
             messageBytes.write(cookie_bytes.toByteArray());
             messageBytes.write(":".getBytes());

@@ -743,7 +743,7 @@ public class UserImpl {
         return response;
     }
 
-    public void showFiles() throws Exception{
+    public void showRemoteFiles() throws Exception{
 
         String hashCookie = Security.hashMessage(cookie);
         ByteString encryptedhashCookie = ByteString.copyFrom(Security.encrypt(serverPublicKey, hashCookie.getBytes()));
@@ -792,6 +792,20 @@ public class UserImpl {
             String fileName = listOfFiles.get(i);
             String[] fileNameToSplit = fileName.split("\\.");
             fileName = fileNameToSplit[0];
+            System.out.println(fileName);
+        }
+    }
+  
+    
+    public void showLocalFiles() throws Exception{
+
+        File file = new File("files/");
+
+        String[] fileList = file.list();
+
+        System.out.println("This are the files in your files directory:");
+
+        for(String fileName : fileList) {
             System.out.println(fileName);
         }
     }

@@ -257,7 +257,7 @@ public class Security {
         Timestamp timestampNow = new Timestamp(System.currentTimeMillis());
         long timeStampLong = timestampNow.getTime();
 
-        if((timeStampLong - sentTimeStampLong) < 32000000) //mudar valor
+        if((timeStampLong - sentTimeStampLong) < 3200)
             return true;
         return false;
     }

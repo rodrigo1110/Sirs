@@ -133,8 +133,11 @@ public class User {
 						case "editFile":
 							user.editFile();
 							break;
+						case "showLocalFiles":
+							user.showLocalFiles();
+							break;
 						case "showRemoteFiles":
-							user.showFiles();
+							user.showRemoteFiles();
 							break;
 						case "download":
 							user.download();
@@ -158,6 +161,7 @@ public class User {
 							System.out.printf("Avaliable operations:\n");
 							System.out.printf(" - createFile\n");
 							System.out.printf(" - editFile\n");
+							System.out.printf(" - showLocalFiles\n");
 							System.out.printf(" - showRemoteFiles\n");
 							System.out.printf(" - download\n");
 							System.out.printf(" - upload\n"); 
