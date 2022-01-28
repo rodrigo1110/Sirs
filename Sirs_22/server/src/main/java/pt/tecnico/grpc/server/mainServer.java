@@ -290,7 +290,7 @@ public class mainServer {
     }
 
     
-    /*------------------------------------ Datanase Integrity Functions------------------------------------------------*/
+    /*------------------------------------ Database Integrity Functions------------------------------------------------*/
 
     public void verifyUsersTableStateDB() throws Exception{
         
@@ -399,7 +399,7 @@ public class mainServer {
         }
     }
 
-    /*------------------------------------Client-MainServer communication------------------------------------------------*/
+    /*------------------------------------User-MainServer Communication------------------------------------------------*/
 
     public void signUp(String username, ByteString password_bytes, ByteString publickeyClient, 
     ByteString timeStamp, ByteString hashMessage) throws Exception{

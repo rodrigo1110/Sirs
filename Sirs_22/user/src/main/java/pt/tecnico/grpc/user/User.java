@@ -17,11 +17,13 @@ import java.io.File;
 public class User {
 
 	public static void main(String[] args) throws Exception {
+
 		System.out.println(User.class.getSimpleName());
+
 		Scanner myObj = new Scanner(System.in);
 
-		// receive and print arguments
 		System.out.printf("Received %d arguments%n", args.length);
+
 		for (int i = 0; i < args.length; i++) {
 			System.out.printf("arg[%d] = %s%n", i, args[i]);
 		}
@@ -42,11 +44,12 @@ public class User {
 		Boolean serverLeft = true;
 		int attempts = 0;
 
-		// Channel is the abstraction to connect to a service endpoint
 		File tls_cert = new File("../server/tlscert/server.crt");
 		final ManagedChannel channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
 
 		UserImpl user = new UserImpl(host, port);
+
+		System.out.println();
 
 		System.out.println("==========================");
 		System.out.print("= Remote Document Access =\n");
@@ -54,13 +57,13 @@ public class User {
 
 		System.out.println("Type 'help' to see avaliable operations.");
 
-		
+		System.out.println();
+
 		while(myObj.hasNext()){
+
 			System.out.print("> ");
 			str = myObj.nextLine();
 			command = str.split("\\s+");
-
-			//avaliableOperations(user.getCookie());
 			
 			if(user.getCookie().compareTo("") == 0){
 
@@ -85,18 +88,24 @@ public class User {
 							break;
 					}
 				} catch(StatusRuntimeException e){
-					if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){//ransomware
+
+					if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){
+
 						System.out.println("Ransmomware attack detected.");
+
 						if(!serverLeft)
 							System.exit(0);
+
 						user.setTarget(backupHost, port + 2);
 						TimeUnit.SECONDS.sleep(1);
-						user.hello();
 						serverLeft = false;
 					}
 					else if((e.getMessage()).compareTo("INVALID_ARGUMENT: Wrong password.") == 0){
+
 						System.out.println(e.getStatus().getDescription());
+
 						attempts++;
+						
 						if(attempts > 2){
 							System.out.println("You have to wait " + (attempts-2)*5 + " seconds to try to login again.");
 							TimeUnit.SECONDS.sleep(attempts*5);
@@ -109,13 +118,14 @@ public class User {
 				}
 			}
 		 	else{
-
 				try{
 					switch (command[0]) {
 						case "logout":
 							user.logout();
-							System.out.println("Waiting " + (attempts)*5 + " seconds.");
-							TimeUnit.SECONDS.sleep(attempts*5);
+							if((attempts*5) > 0){
+								System.out.println("Waiting " + (attempts)*5 + " seconds.");
+								TimeUnit.SECONDS.sleep(attempts*5);
+							}
 							break;
 						case "createFile":
 							user.createFile();
@@ -165,19 +175,23 @@ public class User {
 							break;
 					}
 				} catch(StatusRuntimeException e){
-					if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){//ransomware
+
+					if((e.getStatus().getCode().equals(Status.DATA_LOSS.getCode()))){
+
 						System.out.println("Ransmomware attack detected.");
+
 						if(!serverLeft)
 							System.exit(0);
+
 						user.setTarget(backupHost, port+2);
 						TimeUnit.SECONDS.sleep(1);
-						user.hello();
 						serverLeft = false;
 					}
 					else{
 						System.out.println(e.getStatus().getDescription());
 					}
-				} catch(Exception e){
+				} 
+				catch(Exception e){
 					System.out.println(e);
 				}
 			}
@@ -187,5 +201,4 @@ public class User {
 
 		channel.shutdownNow();
 	}
-
 }

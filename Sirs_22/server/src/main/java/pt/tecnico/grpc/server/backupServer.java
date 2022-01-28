@@ -1,6 +1,7 @@
 package pt.tecnico.grpc.server;
 
 import pt.tecnico.grpc.server.databaseAccess;
+import pt.tecnico.grpc.server.Security;
 import pt.tecnico.grpc.server.exceptions.BackupRansomwareAttackException;
 
 import java.io.ByteArrayOutputStream;
@@ -23,7 +24,6 @@ import pt.tecnico.grpc.MainBackupServerServiceGrpc;
 
 import com.google.protobuf.ByteString;
 
-
 public class backupServer {
 
     private boolean hasPublicKey = false;
@@ -31,57 +31,7 @@ public class backupServer {
     private databaseAccess database = new databaseAccess("rdabackup");
     Connection connection = database.connect();
 
-    public static Key getPublicKey(String filename) throws Exception {
-    
-        byte[] keyBytes = Files.readAllBytes(Paths.get(filename));
-    
-        X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
-        KeyFactory kf = KeyFactory.getInstance("RSA");
-        return kf.generatePublic(spec);
-    }
-
-
-    private String decrypt(Key key, byte[] buffer) {
-        try {
-            Cipher rsa;
-            rsa = Cipher.getInstance("RSA");
-            rsa.init(Cipher.DECRYPT_MODE, key);
-            byte[] value = rsa.doFinal(buffer);
-            return new String(value);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    public String hashString(String secretString, byte[] salt) throws NoSuchAlgorithmException, NoSuchProviderException{
-
-        String hashtext = null;
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-
-        if(salt.length != 0){
-            md.update(salt);
-            System.out.println("Sal: " + salt);
-        }
-
-        byte[] messageDigest = md.digest(secretString.getBytes());
-        hashtext = convertToHex(messageDigest);
-        System.out.println("hash text:" + hashtext);
-        return hashtext;
-    }
-
-    public String convertToHex(byte[] messageDigest) {
-        BigInteger value = new BigInteger(1, messageDigest);
-        String hexText = value.toString(16);
-
-        while (hexText.length() < 32) 
-            hexText = "0".concat(hexText);
-        return hexText;
-    }
-
-
-
+    /*------------------------------------ Database Functionss ------------------------------------------------*/
 
     public String createUserHashDb(String username, String hashPassword, String hashCookie, 
         byte[] salt, byte[] encryptedPublicKey) throws Exception{
@@ -98,9 +48,8 @@ public class backupServer {
         messageBytes.write(encryptedPublicKey);
 
         byte[] message = messageBytes.toByteArray();
-        return hashString(new String(message), new byte[0]);
+        return Security.hashString(new String(message), new byte[0]);
     }
-
 
     public String createFileHashDb(String fileID, byte[] fileContent, String fileOwner) throws Exception{
 
@@ -112,9 +61,8 @@ public class backupServer {
         messageBytes.write(fileOwner.getBytes());
        
         byte[] message = messageBytes.toByteArray();
-        return hashString(new String(message), new byte[0]);
+        return Security.hashString(new String(message), new byte[0]);
     }
-
 
     public String createPermissionHashDb(String fileID, String username, byte[] encryptedSymmetricKey, 
         byte[] encryptedInitializationVector) throws Exception{
@@ -129,9 +77,11 @@ public class backupServer {
         messageBytes.write(encryptedInitializationVector);
 
         byte[] message = messageBytes.toByteArray();
-        return hashString(new String(message), new byte[0]);
+        return Security.hashString(new String(message), new byte[0]);
     }
 
+
+    /*------------------------------------ Database Integrity Functions------------------------------------------------*/
 
     public void verifyUsersTableStateDB() throws Exception{
         
@@ -142,7 +92,8 @@ public class backupServer {
         
             ResultSet rs = st.executeQuery();        
 
-            while(rs.next()) {                       
+            while(rs.next()) {        
+
                 String userName = rs.getString(1);
                 String password = rs.getString(2);        
                 String cookie = rs.getString(3);        
@@ -150,19 +101,12 @@ public class backupServer {
                 byte[] publicKeyDB = rs.getBytes(5);        
                 byte[] encryptedHashLineDB = rs.getBytes(6);      
 
-                System.out.println("userName: " + userName);  
-                System.out.println("password: " + password);  
-                System.out.println("cookie: " + cookie);  
-                System.out.println("salt: " + convertToHex(salt));  
-                System.out.println("publicKeyDB: " + convertToHex(publicKeyDB));  
-                System.out.println("encryptedHashLineDB: " + convertToHex(encryptedHashLineDB));  
-
                 if(cookie == null)
                     cookie = "";
-                String hashLineDB = decrypt(serverPublicKey, encryptedHashLineDB);
+                String hashLineDB = Security.decrypt(serverPublicKey, encryptedHashLineDB);
                 String hashLine = createUserHashDb(userName, password, cookie, salt, publicKeyDB);
                 
-                if(hashLineDB.compareTo(hashLine) != 0){ //change this verification for ==0  for testing ransomware attack in backup
+                if(hashLineDB.compareTo(hashLine) != 0){ 
                     System.out.println("Error Error Error... Integrity of table users compromissed! Shutting Down Backup...");
                     throw new BackupRansomwareAttackException();
                 }            
@@ -173,7 +117,6 @@ public class backupServer {
         }
     }
 
-    
     public void verifyFilesTableStateDB() throws Exception{
         
         String query = "SELECT filename, filecontent, fileowner, hash FROM files";
@@ -189,7 +132,7 @@ public class backupServer {
                 String fileOwner = rs.getString(3);        
                 byte[] encryptedHashLineDB = rs.getBytes(4);             
                 
-                String hashLineDB = decrypt(serverPublicKey, encryptedHashLineDB);
+                String hashLineDB = Security.decrypt(serverPublicKey, encryptedHashLineDB);
                 String hashLine = createFileHashDb(fileName, fileContent, fileOwner);
                 
                 if(hashLineDB.compareTo(hashLine) != 0){
@@ -203,8 +146,8 @@ public class backupServer {
         }
     }
 
-    
     public void verifyPermissionsTableStateDB() throws Exception{
+
         String query = "SELECT filename, username, symmetrickey, initializationvector, hash FROM permissions";
         
         try{
@@ -219,7 +162,7 @@ public class backupServer {
                 byte[] encryptedInitializationVector = rs.getBytes(4);         
                 byte[] encryptedHashLineDB = rs.getBytes(5);
       
-                String hashLineDB = decrypt(serverPublicKey, encryptedHashLineDB);
+                String hashLineDB = Security.decrypt(serverPublicKey, encryptedHashLineDB);
                 String hashLine = createPermissionHashDb(fileName, userName, encryptedSymmetricKey, encryptedInitializationVector);
                 
                 if(hashLineDB.compareTo(hashLine) != 0){
@@ -233,10 +176,8 @@ public class backupServer {
         }
     }
 
-
-
-
-
+    
+    /*------------------------------------ MainServer-BackUp Communication------------------------------------------------*/
 
     public void writeFile(String fileName, ByteString fileContent, String fileOwner, ByteString hash) throws Exception{
 
@@ -251,6 +192,7 @@ public class backupServer {
 
         try {
             PreparedStatement st = connection.prepareStatement(query);
+
             st.setString(1, fileName);
             st.setBytes(2, fileContent.toByteArray());
             st.setString(3, fileOwner);
@@ -258,20 +200,16 @@ public class backupServer {
 
             st.executeUpdate();
             st.close();
-        } catch(SQLException e){
+        } 
+        catch(SQLException e){
               System.out.println(e);
         }
     }
 
-
-   
-
     public void updateCookie(String userName, String cookie, ByteString hash) throws Exception{
-        System.out.println(userName);
-        System.out.println(cookie);
 
         if(!hasPublicKey){
-            serverPublicKey = getPublicKey("rsaPublicKey");
+            serverPublicKey = Security.getPublicKey("rsaPublicKey");
             hasPublicKey = true;
         }
 
@@ -281,6 +219,7 @@ public class backupServer {
                 
         try {
             PreparedStatement st = connection.prepareStatement(query);
+
             st.setString(1, cookie);
             st.setBytes(2, hash.toByteArray());
             st.setString(3, userName);
@@ -289,7 +228,7 @@ public class backupServer {
             st.close();
         }
         catch(SQLException e){
-              System.out.println("Couldn't update cookie" + e);
+              System.out.println(e);
         }
     }
 
@@ -301,6 +240,7 @@ public class backupServer {
 
         try {
             PreparedStatement st = connection.prepareStatement(query);
+
             st.setBytes(1, fileContent.toByteArray());
             st.setBytes(2, hash.toByteArray());
             st.setString(3, fileName);
@@ -311,13 +251,11 @@ public class backupServer {
             return;
         } 
         catch(SQLException e){
-            System.out.println("Couldn't update fileContent" + e);
+            System.out.println(e);
         }
     }
 
-
     public void deleteFile(String fileName) throws Exception{
-        System.out.println(fileName);
 
         verifyFilesTableStateDB();
         verifyPermissionsTableStateDB();
@@ -326,17 +264,16 @@ public class backupServer {
                         
         try {
             PreparedStatement st = connection.prepareStatement(query);
+
             st.setString(1, fileName);
         
             st.executeUpdate();
-            System.out.println("The file " + fileName + " was deleted.");
             st.close();
         } 
         catch(SQLException e){
             System.out.println(e);
         }
 
-        //apagar permissoes associadas a este ficheiro
         query = "DELETE FROM permissions WHERE filename=?";
                     
         try {
@@ -347,15 +284,11 @@ public class backupServer {
             st.close();
         } 
         catch(SQLException e){
-            System.out.println("deleting this files permissions" + e);
+            System.out.println(e);
         }
     }
 
-
     public void deleteUser(String userName) throws Exception{
-        System.out.println("DELETE USER NO BACKUP SERVER");
-        System.out.println(userName);
-        //FIX (update) parece que nao consegue fazer upload de ficheiros grandes
 
         verifyUsersTableStateDB();
         verifyFilesTableStateDB();
@@ -365,13 +298,13 @@ public class backupServer {
     
         try {
             PreparedStatement st = connection.prepareStatement(query);
+
             st.setString(1, userName);
         
             ResultSet rs = st.executeQuery();        
 
             while(rs.next()) {                       
                 String fileName = rs.getString(1);        
-                System.out.println("Filename = " + fileName);
                 
                 query = "DELETE FROM permissions WHERE filename=?";
                             
@@ -381,9 +314,9 @@ public class backupServer {
                 
                     st.executeUpdate();
                     st.close();
-                } catch(SQLException e){
-                        System.out.println("deleting permissions of files belonging to deleted user" + e);
-
+                } 
+                catch(SQLException e){
+                        System.out.println(e);
                 }
             }
         }
@@ -391,53 +324,53 @@ public class backupServer {
             System.out.println(e.toString());
         }
 
-        //apagar permissoes deste user
         query = "DELETE FROM permissions WHERE username=?";
             
         try {
             PreparedStatement st = connection.prepareStatement(query);
+
             st.setString(1, userName);
         
             st.executeUpdate();
             st.close();
-        } catch(SQLException e){
-                System.out.println("deleting this users permissions" + e);
+        } 
+        catch(SQLException e){
+                System.out.println(e);
         }
 
-        //apagar ficheiros deste user
         query = "DELETE FROM files WHERE fileowner=?";
                     
         try {
             PreparedStatement st = connection.prepareStatement(query);
+
             st.setString(1, userName);
         
             st.executeUpdate();
             st.close();
-        } catch(SQLException e){
-                System.out.println("deleting files belonging to deleted user" + e);
+        } 
+        catch(SQLException e){
+                System.out.println(e);
         }
 
-        //Delete user
         query = "DELETE FROM users WHERE username=?";
                     
         try {
             PreparedStatement st = connection.prepareStatement(query);
+
             st.setString(1, userName);
         
             st.executeUpdate();
             st.close();
-        } catch(SQLException e){
-            System.out.println("deleting user " + e);
+        } 
+        catch(SQLException e){
+            System.out.println(e);
         }
     }
 
     public void writeUser(String userName, String hashPassword, ByteString salt, ByteString publicKey, ByteString hash) throws Exception{
-        System.out.println(userName);
-        System.out.println(hashPassword);
-        System.out.println(salt.toStringUtf8());
 
         if(!hasPublicKey){
-            serverPublicKey = getPublicKey("rsaPublicKey");
+            serverPublicKey = Security.getPublicKey("rsaPublicKey");
             hasPublicKey = true;
         }
 
@@ -453,6 +386,7 @@ public class backupServer {
 
         try {
             PreparedStatement st = connection.prepareStatement(query);
+
             st.setString(1, userName);
             st.setString(2, hashPassword);
             st.setBytes(3, salt.toByteArray());
@@ -461,15 +395,13 @@ public class backupServer {
 
             st.executeUpdate();
             st.close();
-          } catch(SQLException e){
-              System.out.println(e);
-          } 
+        } 
+        catch(SQLException e){
+            System.out.println(e);
+        } 
     }
 
     public void writePermission(String fileName, String userName, ByteString symmetricKey, ByteString initializationVector, ByteString hash) throws Exception{
-        System.out.println(userName);
-        System.out.println(fileName);
-
 
         verifyPermissionsTableStateDB();
 
@@ -483,6 +415,7 @@ public class backupServer {
 
         try {
             PreparedStatement st = connection.prepareStatement(query);
+
             st.setString(1, fileName);
             st.setString(2, userName);
             st.setBytes(3, symmetricKey.toByteArray());
@@ -494,7 +427,6 @@ public class backupServer {
         } 
         catch(SQLException e){
                 System.out.println(e);
-
         }
     }
 

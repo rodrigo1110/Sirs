@@ -4,7 +4,6 @@ import pt.tecnico.grpc.UserMainServer;
 import pt.tecnico.grpc.UserMainServerServiceGrpc;
 import pt.tecnico.grpc.user.Security;
 
-
 import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
 import io.grpc.netty.NettyChannelBuilder;
@@ -41,8 +40,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 
-
-
 public class UserImpl {
 
     private String host;
@@ -56,7 +53,6 @@ public class UserImpl {
     private static boolean hasServerPublicKey = false;
     private String username = "";
     private String target;
-
 
     public UserImpl(String Host, int Port){
         target = Host + ":" + Port;
@@ -72,19 +68,6 @@ public class UserImpl {
     public String getCookie(){
         return cookie;
     }
-
-    public void hello() throws Exception{
-        File tls_cert = new File("../server/tlscert/server.crt");
-        channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
-    
-        stub = UserMainServerServiceGrpc.newBlockingStub(channel);
-        UserMainServerServiceGrpc.UserMainServerServiceBlockingStub stub = UserMainServerServiceGrpc.newBlockingStub(channel);
-		UserMainServer.HelloRequest request = UserMainServer.HelloRequest.newBuilder().setName("friend").build();
-
-		UserMainServer.HelloResponse response = stub.greeting(request);
-		System.out.println(response);
-    }
-
 
     public void signup() throws Exception{
 		
@@ -158,8 +141,6 @@ public class UserImpl {
         System.out.println("Successful Registration! Welcome " + userName + ".");
     }    
     
-
-
     public void login() throws Exception{
 
         System.out.println("------------------------------");
@@ -173,12 +154,7 @@ public class UserImpl {
         System.out.print("Please, enter your password: ");
 		char [] input = System.console().readPassword();
         sb.append(input);
-        String password = sb.toString();
-        /* Para apagar depois, claro */
-        System.out.println("You entered the password " + password);
-        System.out.println("-------- ----------------------");
-
-        
+        String password = sb.toString();        
 
         if(!hasServerPublicKey){
             serverPublicKey = Security.getPublicKey("../server/rsaPublicKey");
@@ -235,8 +211,6 @@ public class UserImpl {
         System.out.println("Successful Login! Welcome back " + userName + ".");
     }
 
-
-
     public void logout() throws Exception{
  		      
         String hashCookie = Security.hashMessage(cookie);
@@ -263,9 +237,6 @@ public class UserImpl {
         cookie = "";
         System.out.println("Successful logout.");
     }
-
-
-
 
     public void share() throws Exception{
         System.out.println("------------------------------");
@@ -402,9 +373,6 @@ public class UserImpl {
         }
     }
 
-    
-
-
     public void shareKey(List<byte[]> listOfPublicKeys, List<String> listOfUsers,
         byte[] symmetricKey, String fileName, ByteString encryptedHashCookie) throws Exception{
         
@@ -445,7 +413,6 @@ public class UserImpl {
         
         stub.shareKey(request);
     }
-
 
     public void unshare() throws Exception{
 
@@ -553,9 +520,6 @@ public class UserImpl {
         }
     }
     
-
-
-
     public void downloadLocally(String fileName, byte[] decryptedFileContentByteArray) throws Exception{
         File file = null;
         file = new File("files/" + fileName);
@@ -666,8 +630,6 @@ public class UserImpl {
         }
     }
 
-    
-
     public void download() throws Exception{
 		
         System.out.println("------------------------------");
@@ -735,7 +697,6 @@ public class UserImpl {
         downloadLocally(fileName,decryptedFileContentByteArray);
     }
 
-
     public UserMainServer.isUpdateResponse isUpdate(String fileName, ByteString encryptedHashCookie) throws Exception{
         ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
@@ -802,8 +763,7 @@ public class UserImpl {
             System.out.println(fileName);
         }
     }
-
-    
+  
     public void upload() throws Exception{
 
         System.out.println("------------------------------");
@@ -878,7 +838,6 @@ public class UserImpl {
         System.out.println("Successful Upload!");
     }
 
-
     public void deleteUser() throws Exception{
             
         System.out.println("------------------------------");
@@ -927,7 +886,6 @@ public class UserImpl {
         System.out.println("User deleted successfully!");
         cookie = "";
     }
-
 
     public void deleteFile() throws Exception{
 
