@@ -50,7 +50,6 @@ public class Security {
 
     /*---------------------------Private/Public Key Functions----------------------------------*/
 
-
     public static Key getPublicKey(String filename) throws Exception {
     
         byte[] keyBytes = Files.readAllBytes(Paths.get(filename));
@@ -71,6 +70,7 @@ public class Security {
         return kf.generatePrivate(spec);
     }
 
+    
     /*---------------------------Hash Functions----------------------------------*/
 
     public String createFileChecksum(byte[] file) throws FileNotFoundException, IOException, NoSuchAlgorithmException {
@@ -189,12 +189,11 @@ public class Security {
         Timestamp timestampNow = new Timestamp(System.currentTimeMillis());
         long timeStampLong = timestampNow.getTime();
 
-        if((timeStampLong - sentTimeStampLong) < 3200)
+        if((timeStampLong - sentTimeStampLong) < 1000)
             return true;
 
         return false;
     }
-
 
     public static byte[] getTimeStampBytes(){
 
@@ -250,7 +249,6 @@ public class Security {
         return null;
     }
 
-
     public static byte[] encryptKey(byte[] input, Key key) throws Exception {
 
         Cipher cipher = Cipher.getInstance("RSA");
@@ -277,7 +275,6 @@ public class Security {
 
         return result;
     }
-
 
     public static byte[] decryptKey(byte[] inputArray, Key key) throws Exception {
 

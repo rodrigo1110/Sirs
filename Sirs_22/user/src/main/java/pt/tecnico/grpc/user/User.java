@@ -71,20 +71,24 @@ public class User {
 					switch (command[0]) {
 						case "signup":
 							user.signup();
+							System.out.println();
 							break;
 						case "login":
 							user.login();
+							System.out.println();
 							break;
 						case "help":
 							System.out.printf("Avaliable operations:\n");
 							System.out.printf(" - signup\n");
 							System.out.printf(" - login\n");
 							System.out.printf(" - exit\n");
+							System.out.println();
 							break;
 						case "exit":
 							System.exit(0);
 						default: 
 							System.out.printf("That operation is unavailable.%n");
+							System.out.println();
 							break;
 					}
 				} catch(StatusRuntimeException e){
@@ -125,37 +129,49 @@ public class User {
 							if((attempts*5) > 0){
 								System.out.println("Waiting " + (attempts)*5 + " seconds.");
 								TimeUnit.SECONDS.sleep(attempts*5);
+								System.out.println("Waiting ended. You can call another operation now.");
 							}
+							System.out.println();
 							break;
 						case "createFile":
 							user.createFile();
+							System.out.println();
 							break;
 						case "editFile":
 							user.editFile();
+							System.out.println();
 							break;
 						case "showLocalFiles":
 							user.showLocalFiles();
+							System.out.println();
 							break;
 						case "showRemoteFiles":
 							user.showRemoteFiles();
+							System.out.println();
 							break;
 						case "download":
 							user.download();
+							System.out.println();
 							break;
 						case "upload":
 							user.upload();
+							System.out.println();
 							break;
 						case "share":
 							user.share();
+							System.out.println();
 							break;
 						case "unshare":
 							user.unshare();
+							System.out.println();
 							break;
 						case "deleteUser":
 							user.deleteUser();
+							System.out.println();
 							break;
 						case "deleteFile":
 							user.deleteFile();
+							System.out.println();
 							break;
 						case "help":
 							System.out.printf("Avaliable operations:\n");
@@ -171,11 +187,13 @@ public class User {
 							System.out.printf(" - deleteFile\n"); 
 							System.out.printf(" - logout\n");
 							System.out.printf(" - exit\n");
+							System.out.println();
 							break;
 						case "exit":
 							System.exit(0);
 						default: 
 							System.out.printf("Message not found%n");
+							System.out.println();
 							break;
 					}
 				} catch(StatusRuntimeException e){

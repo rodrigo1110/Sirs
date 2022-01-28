@@ -181,6 +181,8 @@ public class backupServer {
 
     public void writeFile(String fileName, ByteString fileContent, String fileOwner, ByteString hash) throws Exception{
 
+        System.out.println("Adding file " + fileName + " to database.");
+
         verifyFilesTableStateDB();
 
         String query = "INSERT INTO files ("
@@ -208,6 +210,8 @@ public class backupServer {
 
     public void updateCookie(String userName, String cookie, ByteString hash) throws Exception{
 
+        System.out.println("Updating user " + userName + " cookie.");
+
         if(!hasPublicKey){
             serverPublicKey = Security.getPublicKey("rsaPublicKey");
             hasPublicKey = true;
@@ -234,6 +238,8 @@ public class backupServer {
 
     public void updateFile(String fileName, ByteString fileContent, ByteString hash) throws Exception{
 
+        System.out.println("Updating file " + fileName + " on database.");
+
         verifyFilesTableStateDB();
         
         String query = "UPDATE files SET filecontent=?, hash=? WHERE filename=?"; 
@@ -256,6 +262,8 @@ public class backupServer {
     }
 
     public void deleteFile(String fileName) throws Exception{
+
+        System.out.println("Deleting file " + fileName + " from database.");
 
         verifyFilesTableStateDB();
         verifyPermissionsTableStateDB();
@@ -289,6 +297,8 @@ public class backupServer {
     }
 
     public void deleteUser(String userName) throws Exception{
+
+        System.out.println("Deleting user " + userName + " from database.");
 
         verifyUsersTableStateDB();
         verifyFilesTableStateDB();
@@ -369,6 +379,8 @@ public class backupServer {
 
     public void writeUser(String userName, String hashPassword, ByteString salt, ByteString publicKey, ByteString hash) throws Exception{
 
+        System.out.println("Adding user " + userName + " to database.");
+
         if(!hasPublicKey){
             serverPublicKey = Security.getPublicKey("rsaPublicKey");
             hasPublicKey = true;
@@ -403,6 +415,8 @@ public class backupServer {
 
     public void writePermission(String fileName, String userName, ByteString symmetricKey, ByteString initializationVector, ByteString hash) throws Exception{
 
+        System.out.println("Adding permission " + fileName + "-" + userName + " to database.");
+
         verifyPermissionsTableStateDB();
 
         String query = "INSERT INTO permissions ("
@@ -431,6 +445,8 @@ public class backupServer {
     }
 
     public void removePermission(String fileName, String userName) throws Exception{
+
+        System.out.println("Removing permission " + fileName + "-" + userName + " from database.");
 
         verifyPermissionsTableStateDB();
         
