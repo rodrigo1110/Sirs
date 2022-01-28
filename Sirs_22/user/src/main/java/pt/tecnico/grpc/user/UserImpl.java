@@ -466,7 +466,9 @@ public class UserImpl {
             System.out.print("Username " + counter + ": ");
             counter++;
             userName = System.console().readLine();
-            listOfUsers.add(userName);
+            if(!listOfUsers.contains(userName)){
+                listOfUsers.add(userName);
+            }
         }
         //delete de 'x'
          listOfUsers.remove(listOfUsers.size()-1);
@@ -496,7 +498,8 @@ public class UserImpl {
         byte[] encryptedhashResponseByteArray = response.getHashMessage().toByteArray();
         byte[] encryptedTimeStampByteArray = response.getTimeStamp().toByteArray();
         List<String> wrongUserList = response.getWrongUserNameList();
-        
+        List<String> wrongUserListPermissions = response.getWrongUserNamePermissionList();
+
         if(!(Security.verifyTimeStamp(response.getTimeStamp(),serverPublicKey))){
             System.out.println("Response took to long");
             return;
@@ -506,6 +509,8 @@ public class UserImpl {
 
         responseBytes.write(wrongUserList.toString().getBytes());
         responseBytes.write(":".getBytes());
+        responseBytes.write(wrongUserListPermissions.toString().getBytes());
+        responseBytes.write(":".getBytes());
         responseBytes.write(encryptedTimeStampByteArray);
 
         String hashResponseString = Security.decrypt(serverPublicKey, encryptedhashResponseByteArray);
@@ -513,14 +518,36 @@ public class UserImpl {
         if(!(Security.verifyMessageHash(responseBytes.toByteArray(), hashResponseString))){
             System.out.println("Response integrity compromised");
         } 
+
+        int removedUsers = 0;
+        List<String> listOfUsersToCompare = new ArrayList<>(listOfUsers);
+
         for (String wrongUserName : wrongUserList) {
+            if(listOfUsers.remove(wrongUserName)){
+                removedUsers++;
+            }
             System.out.println("User " + wrongUserName + " doesn't exist. You can't unshare the file " + fileName + " with this user.");
         }
 
-        if(listOfUsers.size() != wrongUserList.size()){
+        for (String wrongUserName : wrongUserListPermissions) {
+
+            if(listOfUsers.remove(wrongUserName)){
+                removedUsers++;
+            }
+
+            if(wrongUserName.compareTo(this.username) == 0){
+                System.out.println("You can 't unshare a file with yourself.");
+            }
+            else{
+                System.out.println("User " + wrongUserName + " doesn't have permission to access the file " + fileName + " already.");
+        
+            }
+        }
+
+        if(listOfUsersToCompare.size() != removedUsers){
             System.out.println("The file " + fileName + " was successfully unshared with: ");
-            for (String user : listOfUsers) {
-                if(!wrongUserList.contains(user)){
+            for (String user : listOfUsersToCompare) {
+                if(!wrongUserList.contains(user) &&  !wrongUserListPermissions.contains(user) && (user.compareTo(this.username)) != 0){
                     System.out.println("- " + user);
                 }
             }

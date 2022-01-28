@@ -1681,12 +1681,13 @@ public class mainServer {
             verifyFilesTableStateDB(); 
             
             List<String> listOfWrongNames = new ArrayList<String>();
+            List<String> listOfWrongNamesPermissions = new ArrayList<String>();
 
             if(checkIfFileExists(fileID)){
                 if(checkFileOwner(fileID, dbUserName)){
                     for (String userName : users) {
                         if(checkIfUserExists(userName)){
-                            if(checkIfUserAlreadyHasPermission(fileID, userName)){
+                            if(checkIfUserAlreadyHasPermission(fileID, userName) && !checkFileOwner(fileID, userName)){
                                 
                                 String query = "DELETE FROM permissions WHERE filename=? AND username=?";
                         
@@ -1705,8 +1706,9 @@ public class mainServer {
                                 if(clientActive)
                                     removePermissionFromBackUp(fileID, userName);
                             }
-                            else
-                                throw new UserAlreadyHasAccessException(userName);
+                            else{
+                                listOfWrongNamesPermissions.add(userName);
+                            }
                         }
                         else{
                             System.out.println("nome errado server: " + userName);
@@ -1729,6 +1731,8 @@ public class mainServer {
         
         responseBytes.write(listOfWrongNames.toString().getBytes());
         responseBytes.write(":".getBytes());
+        responseBytes.write(listOfWrongNamesPermissions.toString().getBytes());
+        responseBytes.write(":".getBytes());
         responseBytes.write(encryptedTimeStampByteString.toByteArray());
 
         System.out.println("ENCRYPTED TUMESTAMP UNSHARE: " + encryptedTimeStampByteString);
@@ -1738,7 +1742,7 @@ public class mainServer {
         ByteString encryptedHashResponse = ByteString.copyFrom(encrypt(privateKey, hashResponse.getBytes()));
 
         UserMainServer.unshareResponse response = UserMainServer.unshareResponse.newBuilder().
-        addAllWrongUserName(listOfWrongNames).setTimeStamp(encryptedTimeStampByteString).
+        addAllWrongUserName(listOfWrongNames).addAllWrongUserNamePermission(listOfWrongNamesPermissions).setTimeStamp(encryptedTimeStampByteString).
         setHashMessage(encryptedHashResponse).build();
         System.out.println("CHEGOU AQUI: RESPONDEU AO CLIENTE.");
         return response;  

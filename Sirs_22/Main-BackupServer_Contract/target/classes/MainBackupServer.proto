@@ -1,0 +1,107 @@
+syntax = "proto3";
+package pt.tecnico.grpc;
+
+
+message HelloRequest {
+	string name = 1;
+	repeated string hobbies = 2;
+}
+
+message HelloResponse {
+	string greeting = 1;
+}
+
+
+
+
+message promoteRequest {
+}
+
+message promoteResponse {
+}
+
+
+message writeUserRequest {
+	string username = 1;
+	string hashPassword = 2;
+	bytes salt = 3;
+	bytes publicKey = 4;
+	bytes hash = 5;
+}
+
+message writeUserResponse {
+}
+
+message writePermissionRequest {
+	string fileName = 1;
+	string userName = 2;
+	bytes symmetricKey = 3;
+	bytes initializationVector = 4;
+	bytes hash = 5;
+}
+
+message writePermissionResponse {
+}
+
+message removePermissionRequest {
+	string fileName = 1;
+	string userName = 2;
+
+}
+
+message removePermissionResponse {
+}
+
+message writeFileRequest {
+	string fileName = 1;
+	bytes fileContent = 2;
+	string fileOwner = 3;
+	bytes hash = 4;
+}
+
+message writeFileResponse {
+}
+
+message updateCookieRequest {
+	string userName = 1;
+	string cookie = 2;
+	bytes hash = 3;
+}
+
+message updateCookieResponse {
+}
+
+message updateFileRequest {
+	string fileName = 1;
+	bytes fileContent = 2;
+	bytes hash = 3;
+}
+
+message updateFileResponse {
+}
+
+message deleteFileRequest {
+	string fileName = 1;
+}
+
+message deleteFileResponse {
+}
+message deleteUserRequest {
+	string userName = 1;
+}
+
+message deleteUserResponse {
+}
+
+service MainBackupServerService {
+	rpc greeting(HelloRequest) returns (HelloResponse);
+	rpc promote(promoteRequest) returns (promoteResponse);
+	rpc writeFile(writeFileRequest) returns (writeFileResponse);
+	rpc writeUser(writeUserRequest) returns (writeUserResponse);
+	rpc writePermission(writePermissionRequest) returns (writePermissionResponse);
+	rpc removePermission(removePermissionRequest) returns (removePermissionResponse);
+	rpc updateCookie(updateCookieRequest) returns (updateCookieResponse);
+	rpc updateFile(updateFileRequest) returns (updateFileResponse);
+	rpc deleteFile(deleteFileRequest) returns (deleteFileResponse);
+	rpc deleteUser(deleteUserRequest) returns (deleteUserResponse);
+}
