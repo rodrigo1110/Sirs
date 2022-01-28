@@ -3,6 +3,8 @@ package pt.tecnico.grpc.server;
 import pt.tecnico.grpc.UserMainServer;
 import pt.tecnico.grpc.server.exceptions.*;
 import pt.tecnico.grpc.server.databaseAccess;
+import pt.tecnico.grpc.server.Security;
+
 import pt.tecnico.grpc.MainBackupServerServiceGrpc;
 import pt.tecnico.grpc.MainBackupServer;
 
@@ -71,7 +73,121 @@ public class mainServer {
         
         
     }
+    public void verifyUsersTableStateDB() throws Exception{
+        
+        String query = "SELECT username, password, cookie, salt, publickey, hash FROM users";
+        
+        try{
+            PreparedStatement st = connection.prepareStatement(query);
+        
+            ResultSet rs = st.executeQuery();        
+
+            while(rs.next()) {                       
+                String userName = rs.getString(1);
+                String password = rs.getString(2);        
+                String cookie = rs.getString(3);        
+                byte[] salt = rs.getBytes(4);        
+                byte[] publicKeyDB = rs.getBytes(5);        
+                byte[] encryptedHashLineDB = rs.getBytes(6);      
+
+                System.out.println("userName: " + userName);  
+                System.out.println("password: " + password);  
+                System.out.println("cookie: " + cookie);  
+                System.out.println("salt: " + Security.convertToHex(salt));  
+                System.out.println("publicKeyDB: " + Security.convertToHex(publicKeyDB));  
+                System.out.println("encryptedHashLineDB: " + Security.convertToHex(encryptedHashLineDB));  
+
+                if(cookie == null)
+                    cookie = "";
+                String hashLineDB = Security.decrypt(publicKey, encryptedHashLineDB);
+                String hashLine = Security.createUserHashDb(userName, password, cookie, salt, publicKeyDB);
+                
+                if(hashLineDB.compareTo(hashLine) != 0){ //change this verification for ==0  for testing full ransomware attack
+                    System.out.println("Error Error Error... Integrity of table users compromissed! Shutting Down...");
+                    if(clientActive){
+                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
+                        stub.promote(request);
+                        throw new RansomwareAttackException();
+                    }else
+                        throw new FullRansomwareAttackException();
+                }            
+            }
+        } 
+        catch(SQLException e){
+            System.out.println(e.toString());
+        }
+    }
+
     
+    public void verifyFilesTableStateDB() throws Exception{
+        
+        String query = "SELECT filename, filecontent, fileowner, hash FROM files";
+        
+        try{
+            PreparedStatement st = connection.prepareStatement(query);
+        
+            ResultSet rs = st.executeQuery();        
+
+            while(rs.next()) {                       
+                String fileName = rs.getString(1);
+                byte[] fileContent = rs.getBytes(2);        
+                String fileOwner = rs.getString(3);        
+                byte[] encryptedHashLineDB = rs.getBytes(4);             
+                
+                String hashLineDB = Security.decrypt(publicKey, encryptedHashLineDB);
+                String hashLine = Security.createFileHashDb(fileName, fileContent, fileOwner);
+                
+                if(hashLineDB.compareTo(hashLine) != 0){ 
+                    System.out.println("Eror Error Error... Integrity of table files compromissed! Shutting down...");
+                    if(clientActive){
+                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
+                        stub.promote(request);
+                        throw new RansomwareAttackException();
+                    }else
+                        throw new FullRansomwareAttackException();
+                }            
+            }
+        } 
+        catch(SQLException e){
+            System.out.println(e.toString());
+        }
+    }
+
+    
+    public void verifyPermissionsTableStateDB() throws Exception{
+        String query = "SELECT filename, username, symmetrickey, initializationvector, hash FROM permissions";
+        
+        try{
+            PreparedStatement st = connection.prepareStatement(query);
+        
+            ResultSet rs = st.executeQuery();        
+
+            while(rs.next()) {                       
+                String fileName = rs.getString(1);
+                String userName = rs.getString(2);     
+                byte[] encryptedSymmetricKey = rs.getBytes(3);        
+                byte[] encryptedInitializationVector = rs.getBytes(4);         
+                byte[] encryptedHashLineDB = rs.getBytes(5);
+      
+                String hashLineDB = Security.decrypt(publicKey, encryptedHashLineDB);
+                String hashLine = Security.createPermissionHashDb(fileName, userName, encryptedSymmetricKey, encryptedInitializationVector);
+                
+                if(hashLineDB.compareTo(hashLine) != 0){
+                    System.out.println("Eror Error Error... Integrity of table permissions compromissed! Shutting down...");
+                    if(clientActive){
+                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
+                        stub.promote(request);
+                        throw new RansomwareAttackException();
+                    }else
+                        throw new FullRansomwareAttackException();
+                }            
+            }
+        } 
+        catch(SQLException e){
+            System.out.println(e.toString());
+        }
+    }
+
     public String greet(String name){
         if(clientActive){ //Just for testing, delete later and write function to make requests to backup
             MainBackupServer.HelloRequest request = MainBackupServer.HelloRequest.newBuilder().setName("buddy").build();
@@ -81,26 +197,7 @@ public class mainServer {
     }
 
 
-    public static Key getPublicKey(String filename) throws Exception {
     
-        byte[] keyBytes = Files.readAllBytes(Paths.get(filename));
-    
-        X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
-        KeyFactory kf = KeyFactory.getInstance("RSA");
-        return kf.generatePublic(spec);
-    }
-    
-    
-    public static Key getPrivateKey(String filename) throws Exception {
-    
-        byte[] keyBytes = Files.readAllBytes(Paths.get(filename));
-    
-        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
-        KeyFactory kf = KeyFactory.getInstance("RSA");
-        return kf.generatePrivate(spec);
-    }
-
-
     public byte[] getUserPublicKeyDB(String userName) throws Exception{
 
         String query = "SELECT publickey FROM users WHERE username=?"; 
@@ -115,7 +212,6 @@ public class mainServer {
         throw new UserUnknownException(userName);
 
     }
-          
     
     
     public String getUserPasswordDB(String userName) throws Exception{
@@ -224,384 +320,26 @@ public class mainServer {
     }
 
 
-
-/*         PreparedStatement st = connection.prepareStatement(query);
-        st.setString(1, userName);
-    
-        ResultSet rs = st.executeQuery();        
-
-        if(rs.next()) {                       
-            return rs.getBytes(1);   
-        }
-        throw new UserUnknownException(userName); */
-    
-
-
-    
-    //---------------------------Hash Functions----------------------------------
-
-
-
-
-    public String createFileChecksum(byte[] file) throws FileNotFoundException, IOException, NoSuchAlgorithmException {
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-
-        md.update(file);
-      
-        String checksum = convertToHex(md.digest());
-        System.out.println("checksum ficheiro: " + checksum);
-        return checksum;
-    }   
-    
-    
-    public String hashString(String secretString, byte[] salt) throws NoSuchAlgorithmException, NoSuchProviderException{
-
-        String hashtext = null;
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-
-        if(salt.length != 0){
-            md.update(salt);
-            System.out.println("Sal: " + salt);
-        }
-
-        byte[] messageDigest = md.digest(secretString.getBytes());
-        hashtext = convertToHex(messageDigest);
-        System.out.println("hash text:" + hashtext);
-        return hashtext;
-    }
-
-    public String convertToHex(byte[] messageDigest) {
-        BigInteger value = new BigInteger(1, messageDigest);
-        String hexText = value.toString(16);
-
-        while (hexText.length() < 32) 
-            hexText = "0".concat(hexText);
-        return hexText;
-    }
-    
-    public byte[] createSalt() throws NoSuchAlgorithmException, NoSuchProviderException {
-      SecureRandom random = SecureRandom.getInstance("SHA1PRNG", "SUN");
-      byte[] salt = new byte[20];
-    
-      random.nextBytes(salt);
-      return salt;
-    }
-
-
-
-    public String createUserHashDb(String username, String hashPassword, String hashCookie, 
-        byte[] salt, byte[] encryptedPublicKey) throws Exception{
-
-        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
-        messageBytes.write(username.getBytes());
-        messageBytes.write(":".getBytes());
-        messageBytes.write(hashPassword.getBytes());
-        messageBytes.write(":".getBytes());
-        messageBytes.write(hashCookie.getBytes());
-        messageBytes.write(":".getBytes());
-        messageBytes.write(salt);
-        messageBytes.write(":".getBytes());
-        messageBytes.write(encryptedPublicKey);
-
-        byte[] message = messageBytes.toByteArray();
-        return hashString(new String(message), new byte[0]);
-    }
-
-
-    public String createFileHashDb(String fileID, byte[] fileContent, String fileOwner) throws Exception{
-
-        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
-        messageBytes.write(fileID.getBytes());
-        messageBytes.write(":".getBytes());
-        messageBytes.write(fileContent);
-        messageBytes.write(":".getBytes());
-        messageBytes.write(fileOwner.getBytes());
-       
-        byte[] message = messageBytes.toByteArray();
-        return hashString(new String(message), new byte[0]);
-    }
-
-
-    public String createPermissionHashDb(String fileID, String username, byte[] encryptedSymmetricKey, 
-        byte[] encryptedInitializationVector) throws Exception{
-
-        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
-        messageBytes.write(fileID.getBytes());
-        messageBytes.write(":".getBytes());
-        messageBytes.write(username.getBytes());
-        messageBytes.write(":".getBytes());
-        messageBytes.write(encryptedSymmetricKey);
-        messageBytes.write(":".getBytes());
-        messageBytes.write(encryptedInitializationVector);
-
-        byte[] message = messageBytes.toByteArray();
-        return hashString(new String(message), new byte[0]);
-    }
-
-
-    public void verifyUsersTableStateDB() throws Exception{
-        
-        String query = "SELECT username, password, cookie, salt, publickey, hash FROM users";
-        
-        try{
-            PreparedStatement st = connection.prepareStatement(query);
-        
-            ResultSet rs = st.executeQuery();        
-
-            while(rs.next()) {                       
-                String userName = rs.getString(1);
-                String password = rs.getString(2);        
-                String cookie = rs.getString(3);        
-                byte[] salt = rs.getBytes(4);        
-                byte[] publicKeyDB = rs.getBytes(5);        
-                byte[] encryptedHashLineDB = rs.getBytes(6);      
-
-                System.out.println("userName: " + userName);  
-                System.out.println("password: " + password);  
-                System.out.println("cookie: " + cookie);  
-                System.out.println("salt: " + convertToHex(salt));  
-                System.out.println("publicKeyDB: " + convertToHex(publicKeyDB));  
-                System.out.println("encryptedHashLineDB: " + convertToHex(encryptedHashLineDB));  
-
-                if(cookie == null)
-                    cookie = "";
-                String hashLineDB = decrypt(publicKey, encryptedHashLineDB);
-                String hashLine = createUserHashDb(userName, password, cookie, salt, publicKeyDB);
-                
-                if(hashLineDB.compareTo(hashLine) != 0){ //change this verification for ==0  for testing full ransomware attack
-                    System.out.println("Error Error Error... Integrity of table users compromissed! Shutting Down...");
-                    if(clientActive){
-                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
-                        stub.promote(request);
-                        throw new RansomwareAttackException();
-                    }else
-                        throw new FullRansomwareAttackException();
-                }            
-            }
-        } 
-        catch(SQLException e){
-            System.out.println(e.toString());
-        }
-    }
-
-    
-    public void verifyFilesTableStateDB() throws Exception{
-        
-        String query = "SELECT filename, filecontent, fileowner, hash FROM files";
-        
-        try{
-            PreparedStatement st = connection.prepareStatement(query);
-        
-            ResultSet rs = st.executeQuery();        
-
-            while(rs.next()) {                       
-                String fileName = rs.getString(1);
-                byte[] fileContent = rs.getBytes(2);        
-                String fileOwner = rs.getString(3);        
-                byte[] encryptedHashLineDB = rs.getBytes(4);             
-                
-                String hashLineDB = decrypt(publicKey, encryptedHashLineDB);
-                String hashLine = createFileHashDb(fileName, fileContent, fileOwner);
-                
-                if(hashLineDB.compareTo(hashLine) != 0){ 
-                    System.out.println("Eror Error Error... Integrity of table files compromissed! Shutting down...");
-                    if(clientActive){
-                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
-                        stub.promote(request);
-                        throw new RansomwareAttackException();
-                    }else
-                        throw new FullRansomwareAttackException();
-                }            
-            }
-        } 
-        catch(SQLException e){
-            System.out.println(e.toString());
-        }
-    }
-
-    
-    public void verifyPermissionsTableStateDB() throws Exception{
-        String query = "SELECT filename, username, symmetrickey, initializationvector, hash FROM permissions";
-        
-        try{
-            PreparedStatement st = connection.prepareStatement(query);
-        
-            ResultSet rs = st.executeQuery();        
-
-            while(rs.next()) {                       
-                String fileName = rs.getString(1);
-                String userName = rs.getString(2);     
-                byte[] encryptedSymmetricKey = rs.getBytes(3);        
-                byte[] encryptedInitializationVector = rs.getBytes(4);         
-                byte[] encryptedHashLineDB = rs.getBytes(5);
-      
-                String hashLineDB = decrypt(publicKey, encryptedHashLineDB);
-                String hashLine = createPermissionHashDb(fileName, userName, encryptedSymmetricKey, encryptedInitializationVector);
-                
-                if(hashLineDB.compareTo(hashLine) != 0){
-                    System.out.println("Eror Error Error... Integrity of table permissions compromissed! Shutting down...");
-                    if(clientActive){
-                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
-                        stub.promote(request);
-                        throw new RansomwareAttackException();
-                    }else
-                        throw new FullRansomwareAttackException();
-                }            
-            }
-        } 
-        catch(SQLException e){
-            System.out.println(e.toString());
-        }
-    }
-
-
-
-    public boolean verifyMessageHash(byte[] Message,String hashMessage) throws Exception{
-        String message = new String(Message);
-        if((hashString(message, new byte[0]).compareTo(hashMessage)) == 0)
-            return true;
-        return false;   
-    }
-
-
-    private boolean verifyTimeStamp(ByteString sentTimeStamp, Key key)  throws Exception{
-        String timeStampDecrypted= decrypt(key, sentTimeStamp.toByteArray());
-        long sentTimeStampLong = Long.parseLong(timeStampDecrypted);
-        
-        Timestamp timestampNow = new Timestamp(System.currentTimeMillis());
-        long timeStampLong = timestampNow.getTime();
-        System.out.println("TimeStamp time: " + timeStampLong);
-        if((timeStampLong - sentTimeStampLong) < 32000000)
-            return true;
-        return false;
-    }
-
-
-    public byte[] getTimeStampBytes(){
-        Timestamp timestampNow = new Timestamp(System.currentTimeMillis());
-        long timeStampLong = timestampNow.getTime();
-        return Long.toString(timeStampLong).getBytes();
-    }
-
-
-
-
-
-    //---------------------------Encryption/Decryption Functions----------------------------------
-
-
-
-
-
-    private byte[] encrypt(Key key, byte[] text) {
-        try {
-            Cipher rsa;
-            rsa = Cipher.getInstance("RSA");
-            rsa.init(Cipher.ENCRYPT_MODE, key);
-            return rsa.doFinal(text); //text.getBytes()
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-   
-    private String decrypt(Key key, byte[] buffer) {
-        try {
-            Cipher rsa;
-            rsa = Cipher.getInstance("RSA");
-            rsa.init(Cipher.DECRYPT_MODE, key);
-            byte[] value = rsa.doFinal(buffer);
-            return new String(value);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-
-    public byte[] encryptKey(byte[] inputArray, Key key) throws Exception {
-        Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.ENCRYPT_MODE, key);
-
-        int inputLength = inputArray.length;
-        System.out.println("Encrypted bytes:" + inputLength);
-        int MAX_ENCRYPT_BLOCK = 117;
-        int offSet = 0;
-        byte[] resultBytes = {};
-        byte[] iteration = {};
-
-        while (inputLength-offSet> 0) {
-            if (inputLength-offSet> MAX_ENCRYPT_BLOCK) {
-                iteration = cipher.doFinal(inputArray, offSet, MAX_ENCRYPT_BLOCK);
-                offSet += MAX_ENCRYPT_BLOCK;
-            } else {
-                iteration = cipher.doFinal(inputArray, offSet, inputLength-offSet);
-                offSet = inputLength;
-            }
-            resultBytes = Arrays.copyOf(resultBytes, resultBytes.length + iteration.length);
-            System.arraycopy(iteration, 0, resultBytes, resultBytes.length-iteration.length, iteration.length);
-        }
-
-        return resultBytes;
-    }
-
-
-    public byte[] decryptKey(byte[] inputArray, Key key) throws Exception {
-        Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.DECRYPT_MODE, key);
-
-        int inputLength = inputArray.length;
-        System.out.println("Decrypted bytes:" + inputLength);
-        int MAX_ENCRYPT_BLOCK = 128;
-        int offSet = 0;
-        byte[] resultBytes = {};
-        byte[] iteration = {};
-
-        while (inputLength-offSet> 0) {
-            if (inputLength-offSet> MAX_ENCRYPT_BLOCK) {
-                iteration = cipher.doFinal(inputArray, offSet, MAX_ENCRYPT_BLOCK);
-                offSet += MAX_ENCRYPT_BLOCK;
-            } else {
-                iteration = cipher.doFinal(inputArray, offSet, inputLength-offSet);
-                offSet = inputLength;
-            }
-            resultBytes = Arrays.copyOf(resultBytes, resultBytes.length + iteration.length);
-            System.arraycopy(iteration, 0, resultBytes, resultBytes.length-iteration.length, iteration.length);
-        }
-        return resultBytes;
-    }
-
-
-
-
-
-
     //------------------------------------Client-MainServer communication------------------------------------------------
 
-
-
-    
 
     public void signUp(String username, ByteString password_bytes, ByteString publickeyClient, ByteString timeStamp, ByteString hashMessage) throws Exception{
     
         System.out.println("User " + username + " has attempted to signup.");
 
         if(!hasKeys){
-            privateKey = getPrivateKey("src/main/java/pt/tecnico/grpc/server/rsaPrivateKey");
-            publicKey = getPublicKey("rsaPublicKey");
+            privateKey = Security.getPrivateKey("src/main/java/pt/tecnico/grpc/server/rsaPrivateKey");
+            publicKey = Security.getPublicKey("rsaPublicKey");
             hasKeys = true;
         }
 
-        byte[] clientPubKeyArray = decryptKey(publickeyClient.toByteArray(), privateKey);
+        byte[] clientPubKeyArray = Security.decryptKey(publickeyClient.toByteArray(), privateKey);
         X509EncodedKeySpec keySpec = new X509EncodedKeySpec(clientPubKeyArray);
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
         Key clientPubKey = keyFactory.generatePublic(keySpec);
         
         
-        if(!verifyTimeStamp(timeStamp, clientPubKey))
+        if(!Security.verifyTimeStamp(timeStamp, clientPubKey))
             throw new TimestampException();
 
 
@@ -614,8 +352,8 @@ public class mainServer {
         messageBytes.write(":".getBytes());
         messageBytes.write(timeStamp.toByteArray());
 
-        String hashMessageString = decrypt(clientPubKey, hashMessage.toByteArray());
-        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+        String hashMessageString = Security.decrypt(clientPubKey, hashMessage.toByteArray());
+        if(!Security.verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
             throw new MessageIntegrityException();
         }
         //byte[] encryptedHashMessage = encrypt(publicKey, hashMessageString.getBytes());
@@ -640,14 +378,14 @@ public class mainServer {
             else{
                 System.out.println("Else Else Else");
 
-                byte[] salt = createSalt();
-                String password = decrypt(privateKey, password_bytes.toByteArray());
+                byte[] salt = Security.createSalt();
+                String password = Security.decrypt(privateKey, password_bytes.toByteArray());
                 System.out.println("Password: " + password);
-                String hashPassword = hashString(password, salt);
+                String hashPassword = Security.hashString(password, salt);
                 System.out.println("Hash Password signup: " + hashPassword);
                 
-                String hashUser = createUserHashDb(username, hashPassword, "", salt, publickeyClient.toByteArray());
-                byte[] encryptedHashUser = encrypt(privateKey, hashUser.getBytes());
+                String hashUser = Security.createUserHashDb(username, hashPassword, "", salt, publickeyClient.toByteArray());
+                byte[] encryptedHashUser = Security.encrypt(privateKey, hashUser.getBytes());
 
 
                 System.out.println("AQUI AQUI AQUI");
@@ -671,7 +409,7 @@ public class mainServer {
                 st.executeUpdate();
                 st.close();
                 if(clientActive)
-                    sendUserToBackUp(username, hashString(password, salt), salt, ByteString.copyFrom(publickeyClient.toByteArray()), ByteString.copyFrom(encryptedHashUser));
+                    sendUserToBackUp(username, Security.hashString(password, salt), salt, ByteString.copyFrom(publickeyClient.toByteArray()), ByteString.copyFrom(encryptedHashUser));
             }
 
         } catch(SQLException e){
@@ -682,15 +420,7 @@ public class mainServer {
 
 
 
-    public String createCookie(String userName, String password) throws NoSuchAlgorithmException, NoSuchProviderException{
-      
-        String hexSalt = convertToHex(createSalt());
-        //String salt_string = new String(createSalt(), StandardCharsets.UTF_8);
 
-        String cookie = userName + password + hexSalt;
-        System.out.println("bolacha: " + cookie);
-        return cookie;
-    }
 
 
 
@@ -706,8 +436,8 @@ public class mainServer {
         System.out.println("User " + username + " has attempted to login with password " + password + ".");
 
         if(!hasKeys){
-            privateKey = getPrivateKey("src/main/java/pt/tecnico/grpc/server/rsaPrivateKey");
-            publicKey = getPublicKey("rsaPublicKey");
+            privateKey = Security.getPrivateKey("src/main/java/pt/tecnico/grpc/server/rsaPrivateKey");
+            publicKey = Security.getPublicKey("rsaPublicKey");
             hasKeys = true;
         }
         
@@ -723,7 +453,7 @@ public class mainServer {
             if(rs.next()) {                       
                 userPublicKeyEncrypted = rs.getBytes(1);   
                 System.out.println("User public key: " + userPublicKeyEncrypted);
-                userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted, privateKey);
+                userPublicKeyByteArray = Security.decryptKey(userPublicKeyEncrypted, privateKey);
                 
                 X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
                 KeyFactory keyFactory = KeyFactory.getInstance("RSA");
@@ -740,7 +470,7 @@ public class mainServer {
 
 
 
-        if(!verifyTimeStamp(timeStamp, userPublicKey))
+        if(!Security.verifyTimeStamp(timeStamp, userPublicKey))
             throw new TimestampException();
 
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
@@ -750,13 +480,13 @@ public class mainServer {
         messageBytes.write(":".getBytes());
         messageBytes.write(timeStamp.toByteArray());
 
-        String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
-        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+        String hashMessageString = Security.decrypt(userPublicKey, hashMessage.toByteArray());
+        if(!Security.verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
             throw new MessageIntegrityException();
         }
 
         
-        String password = decrypt(privateKey, password_bytes.toByteArray());
+        String password = Security.decrypt(privateKey, password_bytes.toByteArray());
 
             //check if user is registered
             query = "SELECT username FROM users WHERE username=?";  //Verify if user Exists
@@ -801,7 +531,7 @@ public class mainServer {
                             System.out.println("Salt = " + salt);  
                         }    
 
-                        String hashPassword = hashString(password,salt); 
+                        String hashPassword = Security.hashString(password,salt); 
                         
                                        
                         System.out.println("HashPasswordAfter: " + hashPassword);
@@ -813,8 +543,8 @@ public class mainServer {
                         else{
                             System.out.println("User " + username + " logged in with password " + password + ".");
                         
-                            String cookie = createCookie(username, password);
-                            String cookieHash = hashString(cookie, new byte[0]);
+                            String cookie = Security.createCookie(username, password);
+                            String cookieHash = Security.hashString(cookie, new byte[0]);
 
                             
                             query = "UPDATE users SET cookie=? WHERE username=?";   //criar/atualizar cookie na base de dados
@@ -831,8 +561,8 @@ public class mainServer {
                                 throw new FailedOperationException();
                             }
 
-                            String hashUser = createUserHashDb(username, hashPassword, cookieHash, salt, userPublicKeyEncrypted);
-                            byte[] hashUserEncrypted = encrypt(privateKey, hashUser.getBytes());
+                            String hashUser = Security.createUserHashDb(username, hashPassword, cookieHash, salt, userPublicKeyEncrypted);
+                            byte[] hashUserEncrypted = Security.encrypt(privateKey, hashUser.getBytes());
 
                             query = "UPDATE users SET hash=? WHERE username=?";   ///atualizar hash user
                 
@@ -849,13 +579,13 @@ public class mainServer {
                             }
 
                             if(clientActive)
-                                updateCookieBackUp(username, hashString(cookie, new byte[0]), ByteString.copyFrom(hashUserEncrypted));
+                                updateCookieBackUp(username, Security.hashString(cookie, new byte[0]), ByteString.copyFrom(hashUserEncrypted));
 
 
                             
-                            byte[] encryptedCookie = encrypt(userPublicKey, cookie.getBytes()); //Preparar a resposta
-                            String hashCookie = hashString(cookie, new byte[0]);
-                            byte[] encryptedHash = encrypt(privateKey, hashCookie.getBytes());
+                            byte[] encryptedCookie = Security.encrypt(userPublicKey, cookie.getBytes()); //Preparar a resposta
+                            String hashCookie = Security.hashString(cookie, new byte[0]);
+                            byte[] encryptedHash = Security.encrypt(privateKey, hashCookie.getBytes());
 
                             UserMainServer.loginResponse response= UserMainServer.loginResponse.newBuilder()
 			                .setCookie(ByteString.copyFrom(encryptedCookie)).setHashCookie(ByteString.copyFrom(encryptedHash)).build();
@@ -1013,18 +743,18 @@ public class mainServer {
         try{
             verifyUsersTableStateDB();
             
-            String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
+            String hashCookie = Security.decrypt(privateKey, cookie_bytes.toByteArray());
             System.out.println("Decrypted hash of cookie: " + hashCookie);
             String dbUserName = correspondentUser(hashCookie);
 
             byte[] userPublicKeyEncrypted = getUserPublicKeyDB(dbUserName);
-            byte[] userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted,privateKey);
+            byte[] userPublicKeyByteArray = Security.decryptKey(userPublicKeyEncrypted,privateKey);
             X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             Key userPublicKey = keyFactory.generatePublic(keySpec);
             
             
-            if(!verifyTimeStamp(timeStamp,userPublicKey))
+            if(!Security.verifyTimeStamp(timeStamp,userPublicKey))
                 throw new TimestampException();
 
                 
@@ -1033,8 +763,8 @@ public class mainServer {
             messageBytes.write(":".getBytes());
             messageBytes.write(timeStamp.toByteArray());
             
-            String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
-            if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            String hashMessageString = Security.decrypt(userPublicKey, hashMessage.toByteArray());
+            if(!Security.verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
                 throw new MessageIntegrityException();
             }
             
@@ -1042,8 +772,8 @@ public class mainServer {
             String hashPassword = getUserPasswordDB(dbUserName);
             byte[] salt = getUserSaltDB(dbUserName);
 
-            String hashUser = createUserHashDb(dbUserName, hashPassword, "", salt, userPublicKeyEncrypted);
-            byte[] hashUserEncrypted = encrypt(privateKey, hashUser.getBytes());
+            String hashUser = Security.createUserHashDb(dbUserName, hashPassword, "", salt, userPublicKeyEncrypted);
+            byte[] hashUserEncrypted = Security.encrypt(privateKey, hashUser.getBytes());
 
             String query = "UPDATE users SET cookie=?, hash=? WHERE username=?";
                     
@@ -1075,18 +805,18 @@ public class mainServer {
 
         try{
             Boolean isUpdate = false;
-            String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
+            String hashCookie = Security.decrypt(privateKey, cookie_bytes.toByteArray());
             System.out.println("Decrypted hash of cookie: " + hashCookie);
             String dbUserName = correspondentUser(hashCookie);
 
             byte[] userPublicKeyEncrypted = getUserPublicKeyDB(dbUserName);
-            byte[] userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted,privateKey);
+            byte[] userPublicKeyByteArray = Security.decryptKey(userPublicKeyEncrypted,privateKey);
             X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             Key userPublicKey = keyFactory.generatePublic(keySpec);
             
             
-            if(!verifyTimeStamp(timeStamp,userPublicKey))
+            if(!Security.verifyTimeStamp(timeStamp,userPublicKey))
                 throw new TimestampException();
 
             
@@ -1097,8 +827,8 @@ public class mainServer {
             messageBytes.write(":".getBytes());
             messageBytes.write(timeStamp.toByteArray());
             
-            String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
-            if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            String hashMessageString = Security.decrypt(userPublicKey, hashMessage.toByteArray());
+            if(!Security.verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
                 throw new MessageIntegrityException();
             }
 
@@ -1116,7 +846,7 @@ public class mainServer {
             byte isUpdateByte = (byte)(isUpdate?1:0);
             ByteString encryptedSymmetricKeyByteString =  ByteString.copyFrom(encryptedSymmetricKey);
             ByteString initializationVectorByteString =  ByteString.copyFrom(initializationVector);
-            ByteString encryptedTimeStampByteString = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+            ByteString encryptedTimeStampByteString = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
 
             ByteArrayOutputStream responseBytes = new ByteArrayOutputStream();
@@ -1129,8 +859,8 @@ public class mainServer {
             responseBytes.write(":".getBytes());
             responseBytes.write(encryptedTimeStampByteString.toByteArray());
 
-            String hashResponse = hashString(new String(responseBytes.toByteArray()),new byte[0]);
-            ByteString encryptedHashResponse = ByteString.copyFrom(encrypt(privateKey, hashResponse.getBytes()));
+            String hashResponse = Security.hashString(new String(responseBytes.toByteArray()),new byte[0]);
+            ByteString encryptedHashResponse = ByteString.copyFrom(Security.encrypt(privateKey, hashResponse.getBytes()));
             
             
             UserMainServer.isUpdateResponse response = UserMainServer.isUpdateResponse.newBuilder()
@@ -1155,18 +885,18 @@ public class mainServer {
         try{
             verifyUsersTableStateDB();
             
-            String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
+            String hashCookie = Security.decrypt(privateKey, cookie_bytes.toByteArray());
             System.out.println("Decrypted hash of cookie: " + hashCookie);
             String dbUserName = correspondentUser(hashCookie);
 
             byte[] userPublicKeyEncrypted = getUserPublicKeyDB(dbUserName);
-            byte[] userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted,privateKey);
+            byte[] userPublicKeyByteArray = Security.decryptKey(userPublicKeyEncrypted,privateKey);
             X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             Key userPublicKey = keyFactory.generatePublic(keySpec); 
             
             
-            if(!verifyTimeStamp(timeStamp,userPublicKey))
+            if(!Security.verifyTimeStamp(timeStamp,userPublicKey))
                 throw new TimestampException();
 
             ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
@@ -1183,8 +913,8 @@ public class mainServer {
             messageBytes.write(timeStamp.toByteArray());
             
             
-            String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
-            if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            String hashMessageString = Security.decrypt(userPublicKey, hashMessage.toByteArray());
+            if(!Security.verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
                 throw new MessageIntegrityException();
             }
 
@@ -1195,8 +925,8 @@ public class mainServer {
             
             if(checkIfFileExists(fileID) && checkIfUserAlreadyHasPermission(fileID, dbUserName)){ //encryption with righ symmetric key guaranteed by isUpdate)                                                
                 String ownerFile = getFileOwner(fileID);
-                String hashFile = createFileHashDb(fileID, file.toByteArray(), ownerFile);
-                byte[] hashFileEncrypted = encrypt(privateKey, hashFile.getBytes());
+                String hashFile = Security.createFileHashDb(fileID, file.toByteArray(), ownerFile);
+                byte[] hashFileEncrypted = Security.encrypt(privateKey, hashFile.getBytes());
                 
                 String query = "UPDATE files SET filecontent=?, hash=? WHERE filename=?";   
                 try {
@@ -1223,8 +953,8 @@ public class mainServer {
                 
             //createFileChecksum(file.toByteArray()); 
 
-            String hashFile = createFileHashDb(fileID, file.toByteArray(), dbUserName);
-            byte[] hashFileEncrypted = encrypt(privateKey, hashFile.getBytes());
+            String hashFile = Security.createFileHashDb(fileID, file.toByteArray(), dbUserName);
+            byte[] hashFileEncrypted = Security.encrypt(privateKey, hashFile.getBytes());
             
 
             String query = "INSERT INTO files ("
@@ -1254,8 +984,8 @@ public class mainServer {
                 sendFileToBackUp(fileID, file, dbUserName, ByteString.copyFrom(hashFileEncrypted)); 
             // add owner to permissions table
 
-            String hashPermission = createPermissionHashDb(fileID, dbUserName, symmetricKey.toByteArray(),initializationVector.toByteArray());
-            byte[] hashPermissionEncrypted = encrypt(privateKey, hashPermission.getBytes());
+            String hashPermission = Security.createPermissionHashDb(fileID, dbUserName, symmetricKey.toByteArray(),initializationVector.toByteArray());
+            byte[] hashPermissionEncrypted = Security.encrypt(privateKey, hashPermission.getBytes());
 
             query = "INSERT INTO permissions ("
             + " filename,"
@@ -1334,18 +1064,18 @@ public class mainServer {
         try{
             verifyUsersTableStateDB();
             
-            String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
+            String hashCookie = Security.decrypt(privateKey, cookie_bytes.toByteArray());
             System.out.println("Decrypted hash of cookie: " + hashCookie);
             String dbUserName = correspondentUser(hashCookie);
 
             byte[] userPublicKeyEncrypted = getUserPublicKeyDB(dbUserName);
-            byte[] userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted,privateKey);
+            byte[] userPublicKeyByteArray = Security.decryptKey(userPublicKeyEncrypted,privateKey);
             X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             Key userPublicKey = keyFactory.generatePublic(keySpec); 
         
         
-            if(!verifyTimeStamp(timeStamp,userPublicKey))
+            if(!Security.verifyTimeStamp(timeStamp,userPublicKey))
                 throw new TimestampException();
 
 
@@ -1356,8 +1086,8 @@ public class mainServer {
             messageBytes.write(":".getBytes());
             messageBytes.write(timeStamp.toByteArray());
             
-            String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
-            if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            String hashMessageString = Security.decrypt(userPublicKey, hashMessage.toByteArray());
+            if(!Security.verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
                 throw new MessageIntegrityException();
             }
 
@@ -1376,7 +1106,7 @@ public class mainServer {
                 ByteString encryptedSymmetricKeyByteString =  ByteString.copyFrom(encryptedSymmetricKey);
                 ByteString encryptedFileContentByteString = ByteString.copyFrom(encrypedFileContent);
                 ByteString initializationVectorByteString =  ByteString.copyFrom(initializationVector);
-                ByteString encryptedTimeStampByteString = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+                ByteString encryptedTimeStampByteString = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
 
                 messageBytes = new ByteArrayOutputStream();
@@ -1388,8 +1118,8 @@ public class mainServer {
                 messageBytes.write(":".getBytes());
                 messageBytes.write(encryptedTimeStampByteString.toByteArray());
 
-                String hashResponse = hashString(new String(messageBytes.toByteArray()),new byte[0]);
-                ByteString encryptedHashResponse = ByteString.copyFrom(encrypt(privateKey, hashResponse.getBytes()));
+                String hashResponse = Security.hashString(new String(messageBytes.toByteArray()),new byte[0]);
+                ByteString encryptedHashResponse = ByteString.copyFrom(Security.encrypt(privateKey, hashResponse.getBytes()));
                 
                 
                 UserMainServer.downloadResponse response = UserMainServer.downloadResponse.newBuilder()
@@ -1418,18 +1148,18 @@ public class mainServer {
         try{
             verifyUsersTableStateDB();
             
-            String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
+            String hashCookie = Security.decrypt(privateKey, cookie_bytes.toByteArray());
             System.out.println("Decrypted hash of cookie: " + hashCookie);
             String dbUserName = correspondentUser(hashCookie);
 
             byte[] userPublicKeyEncrypted = getUserPublicKeyDB(dbUserName);
-            byte[] userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted,privateKey);
+            byte[] userPublicKeyByteArray = Security.decryptKey(userPublicKeyEncrypted,privateKey);
             X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             Key userPublicKey = keyFactory.generatePublic(keySpec); 
         
         
-            if(!verifyTimeStamp(timeStamp,userPublicKey))
+            if(!Security.verifyTimeStamp(timeStamp,userPublicKey))
                 throw new TimestampException();
 
 
@@ -1442,8 +1172,8 @@ public class mainServer {
             messageBytes.write(":".getBytes());
             messageBytes.write(timeStamp.toByteArray());
             
-            String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
-            if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            String hashMessageString = Security.decrypt(userPublicKey, hashMessage.toByteArray());
+            if(!Security.verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
                 throw new MessageIntegrityException();
             }
             
@@ -1471,8 +1201,8 @@ public class mainServer {
                                 System.out.println("user no share: " + userName);
 
                                 byte[] sharedUserPublicKeyEncrypted = getUserPublicKeyDB(userName);
-                                byte[] sharedUserPublicKeyByteArray = decryptKey(sharedUserPublicKeyEncrypted,privateKey); //Decrypt with server's private key
-                                byte[] sharedUserEncryptedPublicKey = encryptKey(sharedUserPublicKeyByteArray,userPublicKey); //Encrypt with owner's public key
+                                byte[] sharedUserPublicKeyByteArray = Security.decryptKey(sharedUserPublicKeyEncrypted,privateKey); //Decrypt with server's private key
+                                byte[] sharedUserEncryptedPublicKey = Security.encryptKey(sharedUserPublicKeyByteArray,userPublicKey); //Encrypt with owner's public key
                                 listOfEncryptedPublicKeysByteString.add(ByteString.copyFrom(sharedUserEncryptedPublicKey)); 
                             }
                             else{  
@@ -1496,7 +1226,7 @@ public class mainServer {
             byte[] encryptedSymmetricKey = getEncryptedSymmetricKeyDB(fileID, dbUserName);
                             
             ByteString encryptedSymmetricKeyByteString =  ByteString.copyFrom(encryptedSymmetricKey);
-            ByteString encryptedTimeStampByteString = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+            ByteString encryptedTimeStampByteString = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
             System.out.println("timestamp no servidor SHARe " + encryptedTimeStampByteString);
 
@@ -1518,9 +1248,9 @@ public class mainServer {
             
             System.out.println("ENCRYPTED TUMESTAMP SHARE: " + encryptedTimeStampByteString);
 
-            String hashResponse = hashString(new String(responseBytes.toByteArray()),new byte[0]);
+            String hashResponse = Security.hashString(new String(responseBytes.toByteArray()),new byte[0]);
             System.out.println("hash String calculated by server: " + hashResponse);
-            ByteString encryptedHashResponse = ByteString.copyFrom(encrypt(privateKey, hashResponse.getBytes()));
+            ByteString encryptedHashResponse = ByteString.copyFrom(Security.encrypt(privateKey, hashResponse.getBytes()));
             
             
 
@@ -1545,12 +1275,12 @@ public class mainServer {
         ByteString timeStamp, ByteString hashMessage) throws Exception{
 
         
-        String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
+        String hashCookie = Security.decrypt(privateKey, cookie_bytes.toByteArray());
         System.out.println("Decrypted hash of cookie: " + hashCookie);
         String dbUserName = correspondentUser(hashCookie);
 
         byte[] userPublicKeyEncrypted = getUserPublicKeyDB(dbUserName);
-        byte[] userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted,privateKey);
+        byte[] userPublicKeyByteArray = Security.decryptKey(userPublicKeyEncrypted,privateKey);
         X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
         Key userPublicKey = keyFactory.generatePublic(keySpec); 
@@ -1558,7 +1288,7 @@ public class mainServer {
         byte[] initializationVector = getInitializationVectorDB(fileID, dbUserName);
 
         
-        if(!verifyTimeStamp(timeStamp,userPublicKey))
+        if(!Security.verifyTimeStamp(timeStamp,userPublicKey))
             throw new TimestampException();
 
 
@@ -1576,8 +1306,8 @@ public class mainServer {
         messageBytes.write(timeStamp.toByteArray());
 
         
-        String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
-        if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+        String hashMessageString = Security.decrypt(userPublicKey, hashMessage.toByteArray());
+        if(!Security.verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
             System.out.println("ShareKey request integrity compromissed");
             throw new MessageIntegrityException();
         }
@@ -1593,8 +1323,8 @@ public class mainServer {
                             
                             byte[] encryptedSymmetricKey = symmetricKeyList.get(i).toByteArray();
                             
-                            String hashPermission = createPermissionHashDb(fileID, userName, encryptedSymmetricKey,initializationVector);
-                            byte[] hashPermissionEncrypted = encrypt(privateKey, hashPermission.getBytes());
+                            String hashPermission = Security.createPermissionHashDb(fileID, userName, encryptedSymmetricKey,initializationVector);
+                            byte[] hashPermissionEncrypted = Security.encrypt(privateKey, hashPermission.getBytes());
 
                             String query = "INSERT INTO permissions ("
                             + " filename,"
@@ -1648,18 +1378,18 @@ public class mainServer {
         try{
             verifyUsersTableStateDB(); 
 
-            String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
+            String hashCookie = Security.decrypt(privateKey, cookie_bytes.toByteArray());
             System.out.println("Decrypted hash of cookie: " + hashCookie);
             String dbUserName = correspondentUser(hashCookie);
 
             byte[] userPublicKeyEncrypted = getUserPublicKeyDB(dbUserName);
-            byte[] userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted,privateKey);
+            byte[] userPublicKeyByteArray = Security.decryptKey(userPublicKeyEncrypted,privateKey);
             X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             Key userPublicKey = keyFactory.generatePublic(keySpec); 
         
 
-            if(!verifyTimeStamp(timeStamp,userPublicKey))
+            if(!Security.verifyTimeStamp(timeStamp,userPublicKey))
                 throw new TimestampException();
 
 
@@ -1672,8 +1402,8 @@ public class mainServer {
             messageBytes.write(":".getBytes());
             messageBytes.write(timeStamp.toByteArray());
 
-            String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
-            if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            String hashMessageString = Security.decrypt(userPublicKey, hashMessage.toByteArray());
+            if(!Security.verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
                 throw new MessageIntegrityException();
             }
 
@@ -1722,7 +1452,7 @@ public class mainServer {
             else
                 throw new FileUnknownException(fileID);
         
-        ByteString encryptedTimeStampByteString = ByteString.copyFrom(encrypt(privateKey, getTimeStampBytes()));
+        ByteString encryptedTimeStampByteString = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
         System.out.println("timestamp no servidor UNSGARE " + encryptedTimeStampByteString);
 
@@ -1737,9 +1467,9 @@ public class mainServer {
 
         System.out.println("ENCRYPTED TUMESTAMP UNSHARE: " + encryptedTimeStampByteString);
 
-        String hashResponse = hashString(new String(responseBytes.toByteArray()),new byte[0]);
+        String hashResponse = Security.hashString(new String(responseBytes.toByteArray()),new byte[0]);
 
-        ByteString encryptedHashResponse = ByteString.copyFrom(encrypt(privateKey, hashResponse.getBytes()));
+        ByteString encryptedHashResponse = ByteString.copyFrom(Security.encrypt(privateKey, hashResponse.getBytes()));
 
         UserMainServer.unshareResponse response = UserMainServer.unshareResponse.newBuilder().
         addAllWrongUserName(listOfWrongNames).addAllWrongUserNamePermission(listOfWrongNamesPermissions).setTimeStamp(encryptedTimeStampByteString).
@@ -1761,13 +1491,13 @@ public class mainServer {
         try{
 
             byte[] userPublicKeyEncrypted = getUserPublicKeyDB(userName);
-            byte[] userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted,privateKey);
+            byte[] userPublicKeyByteArray = Security.decryptKey(userPublicKeyEncrypted,privateKey);
             X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             Key userPublicKey = keyFactory.generatePublic(keySpec); 
             
             
-            if(!verifyTimeStamp(timeStamp,userPublicKey))
+            if(!Security.verifyTimeStamp(timeStamp,userPublicKey))
                 throw new TimestampException();
 
             ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
@@ -1777,8 +1507,8 @@ public class mainServer {
             messageBytes.write(":".getBytes());
             messageBytes.write(timeStamp.toByteArray());
 
-            String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
-            if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            String hashMessageString = Security.decrypt(userPublicKey, hashMessage.toByteArray());
+            if(!Security.verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
                 throw new MessageIntegrityException();
             }
             
@@ -1786,7 +1516,7 @@ public class mainServer {
             verifyFilesTableStateDB(); 
             verifyPermissionsTableStateDB(); 
 
-            String password = decrypt(privateKey, password_bytes.toByteArray());
+            String password = Security.decrypt(privateKey, password_bytes.toByteArray());
             byte[] salt = new byte[0];
             
             //Obter password para calculo de hash
@@ -1818,7 +1548,7 @@ public class mainServer {
                 salt = rs.getBytes(1);        
                 System.out.println("Salt = " + salt);  
             }    
-            String hashPassword = hashString(password,salt);     
+            String hashPassword = Security.hashString(password,salt);     
 
             
             //verificar se hash calculado e hash guardada na db sao iguais
@@ -1914,18 +1644,18 @@ public class mainServer {
 
             verifyUsersTableStateDB(); 
 
-            String hashCookie = decrypt(privateKey, cookie_bytes.toByteArray());
+            String hashCookie = Security.decrypt(privateKey, cookie_bytes.toByteArray());
             System.out.println("Decrypted hash of cookie: " + hashCookie);
             String dbUserName = correspondentUser(hashCookie);
 
             byte[] userPublicKeyEncrypted = getUserPublicKeyDB(dbUserName);
-            byte[] userPublicKeyByteArray = decryptKey(userPublicKeyEncrypted,privateKey);
+            byte[] userPublicKeyByteArray = Security.decryptKey(userPublicKeyEncrypted,privateKey);
             X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             Key userPublicKey = keyFactory.generatePublic(keySpec);
         
         
-            if(!verifyTimeStamp(timeStamp,userPublicKey))
+            if(!Security.verifyTimeStamp(timeStamp,userPublicKey))
                 throw new TimestampException();
 
             ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
@@ -1936,8 +1666,8 @@ public class mainServer {
             messageBytes.write(timeStamp.toByteArray());
 
             
-            String hashMessageString = decrypt(userPublicKey, hashMessage.toByteArray());
-            if(!verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+            String hashMessageString = Security.decrypt(userPublicKey, hashMessage.toByteArray());
+            if(!Security.verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
                 throw new MessageIntegrityException();
             }
 
@@ -2135,21 +1865,3 @@ public class mainServer {
         }
     }
 }
-
-//para fazer servidor:
-//funco que verifica os timestamps (<20 segundos?) - FEITO
-//funcao que verifica integridade da mensagem -> verifica hash message - FEITO
-//formatar (encriptar) respostas do servidor -> share e download
-//criar coluna na tabela users para a public key do user (encriptada com a chave publica do servidor)
-//criar 2 colunas na tabela das permissoes: chave simetrica (encriptada com a chave publica do cliente) e initialization vector (encriptado com a chave publica do cliente correspondente)
-//onde esta chave publica do servidor ---> fazer query para ir buscar chave do cliente (quando esta estiver na bd)
-//verifySystemState (para ver ataques) que verifica coluna hash em todas as tabelas e pode originar troca de servidores (promote)
-//extra: comando "show files shared with me"
-
-//para fazer cliente:
-//Eduardo -> chave publica e chave privada + criar pasta Public Key + criar pasta Private Key (password protected cada)
-//colocar no codigo a parte da chave simetrica
-//formatar (encriptar) pedidos do cliente --> gerar timestamps, hashes
-//receber respostas corretamente do servidor
-
-//extra: verificar password (tamanho, carateres especiais...)

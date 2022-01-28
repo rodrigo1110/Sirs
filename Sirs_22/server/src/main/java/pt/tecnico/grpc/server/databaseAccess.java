@@ -128,6 +128,6 @@ public class databaseAccess {
         return connection;
     }
 
-    //-------------------- code to be shared between main and backup server for access to db -----------------
 
+    
 }
