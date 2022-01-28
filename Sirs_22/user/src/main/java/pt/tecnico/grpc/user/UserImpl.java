@@ -92,7 +92,6 @@ public class UserImpl {
         System.out.println("User Registration");
         System.out.print("Please, enter your username: ");
         String userName = System.console().readLine();
-        System.out.println("You entered the username " + userName);
         System.out.println("------------------------------");
 
         while((userName.compareTo("x")) == 0){
