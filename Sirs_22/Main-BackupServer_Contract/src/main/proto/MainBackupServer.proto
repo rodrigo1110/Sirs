@@ -1,19 +1,6 @@
 syntax = "proto3";
 package pt.tecnico.grpc;
 
-
-message HelloRequest {
-	string name = 1;
-	repeated string hobbies = 2;
-}
-
-message HelloResponse {
-	string greeting = 1;
-}
-
-
-
-
 message promoteRequest {
 }
 
@@ -94,7 +81,6 @@ message deleteUserResponse {
 }
 
 service MainBackupServerService {
-	rpc greeting(HelloRequest) returns (HelloResponse);
 	rpc promote(promoteRequest) returns (promoteResponse);
 	rpc writeFile(writeFileRequest) returns (writeFileResponse);
 	rpc writeUser(writeUserRequest) returns (writeUserResponse);

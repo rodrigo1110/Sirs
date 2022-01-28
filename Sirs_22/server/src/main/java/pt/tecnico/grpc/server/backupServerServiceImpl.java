@@ -25,17 +25,6 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 	public backupServerServiceImpl(int instance_number){
 		instanceNumber = instance_number;
 	}
-	
-	@Override
-	public void greeting(MainBackupServer.HelloRequest request, StreamObserver<MainBackupServer.HelloResponse> responseObserver) {
-		System.out.println(request);
-
-		MainBackupServer.HelloResponse response = MainBackupServer.HelloResponse.newBuilder()
-				.setGreeting(server.greet(request.getName()) + Integer.toString(instanceNumber)).build();
-		responseObserver.onNext(response);
-		responseObserver.onCompleted();
-	}
-
 
 	@Override
 	public void promote(MainBackupServer.promoteRequest request, StreamObserver<MainBackupServer.promoteResponse> responseObserver) {

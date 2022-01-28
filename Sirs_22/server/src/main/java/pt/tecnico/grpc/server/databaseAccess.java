@@ -7,7 +7,7 @@ public class databaseAccess {
     private String dbhost = "";
 	private static String username = "root";
 	private static String password = "root";
-    private String databaseName = "root";
+    private String databaseName = "";
     private static Connection connection; 
 
     public databaseAccess(String databaseName){
@@ -17,24 +17,15 @@ public class databaseAccess {
 
     public Connection connect(){
 
-/*         System.out.println("Loading driver...");
-
-        try {
-            Class.forName("com.mysql.jdbc.Driver");
-            System.out.println("Driver loaded!");
-        } catch (ClassNotFoundException e) {
-            throw new IllegalStateException("Cannot find the driver in the classpath!", e);
-        } */
-
-        System.out.println("Connecting to the database...");
+        System.out.println("Connecting to the database.");
 
         try {
             connection = DriverManager.getConnection(dbhost, username, password);
+
             System.out.println("Database connected!");
             
             Statement stmt = connection.createStatement();
 
-            // para criar table users --- se isto resultar, verificar se existe, se nao, criar
             String sql = "CREATE TABLE users " +
             "(username VARCHAR(45) not NULL, " +
             " password VARCHAR(80) not NULL, " + 
@@ -46,18 +37,12 @@ public class databaseAccess {
 
             stmt.executeUpdate(sql);
 
-            System.out.println("Created table users in database..."); 
-            
-            /////////
+            System.out.println("Created table users in database."); 
 
             sql = "ALTER TABLE users CHANGE COLUMN username username VARCHAR(45) CHARACTER SET latin1 COLLATE latin1_general_cs NOT NULL";
+
             stmt.executeUpdate(sql);
-            System.out.println("Table users altered...");   
-
-            /////////	  
              
-
-             //para criar table files --- se isto resultar, verificar se existe, se nao, criar
             sql = "CREATE TABLE files " +
             "(filename VARCHAR(45) not NULL, " +
             " filecontent BLOB not NULL, " + 
@@ -67,18 +52,12 @@ public class databaseAccess {
 
             stmt.executeUpdate(sql);
 
-            System.out.println("Created table files in database...");   	
+            System.out.println("Created table files in database.");   	
             
-            /////////
-
             sql = "ALTER TABLE files CHANGE COLUMN filename filename VARCHAR(45) CHARACTER SET latin1 COLLATE latin1_general_cs NOT NULL";
-            stmt.executeUpdate(sql);
-            System.out.println("Table files altered...");   
 
-            /////////	
-            
+            stmt.executeUpdate(sql);            
 
-            // para criar table permissions --- se isto resultar, verificar se existe, se nao, criar
             sql = "CREATE TABLE permissions " +
             "(filename VARCHAR(45) not NULL, " +
             " username VARCHAR(45) not NULL, " +
@@ -89,45 +68,29 @@ public class databaseAccess {
 
             stmt.executeUpdate(sql);
 
-            System.out.println("Created table permissions in database...");    	 
+            System.out.println("Created table permissions in database.");    	 
             
-            /////////
-
             sql = "ALTER TABLE permissions CHANGE COLUMN filename filename VARCHAR(45) CHARACTER SET latin1 COLLATE latin1_general_cs NOT NULL";
+
             stmt.executeUpdate(sql);
-            System.out.println("Table permissions altered...");   
 
             sql = "ALTER TABLE permissions CHANGE COLUMN username username VARCHAR(45) CHARACTER SET latin1 COLLATE latin1_general_cs NOT NULL";
-            stmt.executeUpdate(sql);
-            System.out.println("Table permissions altered...");   
 
-            /////////
-            
+            stmt.executeUpdate(sql);            
 
-            ResultSet rs = stmt.executeQuery("select * from users");
+        } 
+        catch (SQLException e) {
 
-            while (rs.next()) {
-				String userName = rs.getString("username");
-                String password = rs.getString("password");
-				String cookie = rs.getString("cookie");
-
-				System.out.println(userName + password + cookie + " now has an account.\n");
-			} 
-
-        } catch (SQLException e) {
-            System.out.println(e);
             if(e.getClass().toString().compareTo("class java.sql.SQLSyntaxErrorException") == 0){
-                System.out.println("Tables were not created. They already existed.");
+                System.out.println("Database tables already exist.");
             }
             else{
+                System.out.println(e);
                 throw new IllegalStateException("Cannot connect the database!", e);
             }
         } 
-         
-
+        
         return connection;
     }
-
-
     
 }

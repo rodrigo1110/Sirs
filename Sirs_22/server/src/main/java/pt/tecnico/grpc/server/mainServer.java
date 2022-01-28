@@ -68,124 +68,8 @@ public class mainServer {
         }
     }
 
-    public void verifyUsersTableStateDB() throws Exception{
-        
-        String query = "SELECT username, password, cookie, salt, publickey, hash FROM users";
-        
-        try{
-            PreparedStatement st = connection.prepareStatement(query);
-        
-            ResultSet rs = st.executeQuery();        
+    /*------------------------------------ Database Functionss ------------------------------------------------*/
 
-            while(rs.next()) {                       
-                String userName = rs.getString(1);
-                String password = rs.getString(2);        
-                String cookie = rs.getString(3);        
-                byte[] salt = rs.getBytes(4);        
-                byte[] publicKeyDB = rs.getBytes(5);        
-                byte[] encryptedHashLineDB = rs.getBytes(6);       
-
-                if(cookie == null)
-                    cookie = "";
-                String hashLineDB = Security.decrypt(publicKey, encryptedHashLineDB);
-                String hashLine = Security.createUserHashDb(userName, password, cookie, salt, publicKeyDB);
-                
-                if(hashLineDB.compareTo(hashLine) != 0){ 
-                    System.out.println("Error Error Error... Integrity of table users compromissed! Shutting Down...");
-                    if(clientActive){
-                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
-                        stub.promote(request);
-                        throw new RansomwareAttackException();
-                    }else
-                        throw new FullRansomwareAttackException();
-                }            
-            }
-        } 
-        catch(SQLException e){
-            System.out.println(e.toString());
-        }
-    }
-    
-    public void verifyFilesTableStateDB() throws Exception{
-        
-        String query = "SELECT filename, filecontent, fileowner, hash FROM files";
-        
-        try{
-            PreparedStatement st = connection.prepareStatement(query);
-        
-            ResultSet rs = st.executeQuery();        
-
-            while(rs.next()) {                       
-                String fileName = rs.getString(1);
-                byte[] fileContent = rs.getBytes(2);        
-                String fileOwner = rs.getString(3);        
-                byte[] encryptedHashLineDB = rs.getBytes(4);             
-                
-                String hashLineDB = Security.decrypt(publicKey, encryptedHashLineDB);
-                String hashLine = Security.createFileHashDb(fileName, fileContent, fileOwner);
-                
-                if(hashLineDB.compareTo(hashLine) != 0){ 
-                    System.out.println("Eror Error Error... Integrity of table files compromissed! Shutting down...");
-                    if(clientActive){
-                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
-                        stub.promote(request);
-                        throw new RansomwareAttackException();
-                    }else
-                        throw new FullRansomwareAttackException();
-                }            
-            }
-        } 
-        catch(SQLException e){
-            System.out.println(e.toString());
-        }
-    }
-
-    
-    public void verifyPermissionsTableStateDB() throws Exception{
-
-        String query = "SELECT filename, username, symmetrickey, initializationvector, hash FROM permissions";
-        
-        try{
-            PreparedStatement st = connection.prepareStatement(query);
-        
-            ResultSet rs = st.executeQuery();        
-
-            while(rs.next()) {                       
-                String fileName = rs.getString(1);
-                String userName = rs.getString(2);     
-                byte[] encryptedSymmetricKey = rs.getBytes(3);        
-                byte[] encryptedInitializationVector = rs.getBytes(4);         
-                byte[] encryptedHashLineDB = rs.getBytes(5);
-      
-                String hashLineDB = Security.decrypt(publicKey, encryptedHashLineDB);
-                String hashLine = Security.createPermissionHashDb(fileName, userName, encryptedSymmetricKey, encryptedInitializationVector);
-                
-                if(hashLineDB.compareTo(hashLine) != 0){
-                    System.out.println("Eror Error Error... Integrity of table permissions compromissed! Shutting down...");
-                    if(clientActive){
-                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
-                        stub.promote(request);
-                        throw new RansomwareAttackException();
-                    }else
-                        throw new FullRansomwareAttackException();
-                }            
-            }
-        } 
-        catch(SQLException e){
-            System.out.println(e.toString());
-        }
-    }
-
-    public String greet(String name){
-        if(clientActive){ //Just for testing, delete later and write function to make requests to backup
-            MainBackupServer.HelloRequest request = MainBackupServer.HelloRequest.newBuilder().setName("buddy").build();
-		    MainBackupServer.HelloResponse response = stub.greeting(request);
-        }
-        return "Hello my dear " + name + "!";
-    }
-
-
-    
     public byte[] getUserPublicKeyDB(String userName) throws Exception{
 
         String query = "SELECT publickey FROM users WHERE username=?"; 
@@ -200,7 +84,6 @@ public class mainServer {
         throw new UserUnknownException(userName);
 
     }
-    
     
     public String getUserPasswordDB(String userName) throws Exception{
 
@@ -231,7 +114,6 @@ public class mainServer {
         }
         throw new UserUnknownException(userName);
     }
-
 
     public String getFileOwner(String fileName) throws Exception{
 
@@ -266,8 +148,6 @@ public class mainServer {
         }
         throw new FileNotFoundException();
     }
-
-
     
     public byte[] getEncryptedSymmetricKeyDB(String fileName, String userName) throws Exception{
 
@@ -303,7 +183,6 @@ public class mainServer {
         throw new EncryptedInitializationVectorNotFoundException();
     }
 
-    
     public boolean checkIfUserExists(String userName){
 
         String query = "SELECT username FROM users WHERE username=?";
@@ -411,9 +290,116 @@ public class mainServer {
     }
 
     
+    /*------------------------------------ Datanase Integrity Functions------------------------------------------------*/
+
+    public void verifyUsersTableStateDB() throws Exception{
+        
+        String query = "SELECT username, password, cookie, salt, publickey, hash FROM users";
+        
+        try{
+            PreparedStatement st = connection.prepareStatement(query);
+        
+            ResultSet rs = st.executeQuery();        
+
+            while(rs.next()) {                       
+                String userName = rs.getString(1);
+                String password = rs.getString(2);        
+                String cookie = rs.getString(3);        
+                byte[] salt = rs.getBytes(4);        
+                byte[] publicKeyDB = rs.getBytes(5);        
+                byte[] encryptedHashLineDB = rs.getBytes(6);       
+
+                if(cookie == null)
+                    cookie = "";
+                String hashLineDB = Security.decrypt(publicKey, encryptedHashLineDB);
+                String hashLine = Security.createUserHashDb(userName, password, cookie, salt, publicKeyDB);
+                
+                if(hashLineDB.compareTo(hashLine) != 0){ 
+                    System.out.println("Error Error Error... Integrity of table users compromissed! Shutting Down...");
+                    if(clientActive){
+                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
+                        stub.promote(request);
+                        throw new RansomwareAttackException();
+                    }else
+                        throw new FullRansomwareAttackException();
+                }            
+            }
+        } 
+        catch(SQLException e){
+            System.out.println(e.toString());
+        }
+    }
+    
+    public void verifyFilesTableStateDB() throws Exception{
+        
+        String query = "SELECT filename, filecontent, fileowner, hash FROM files";
+        
+        try{
+            PreparedStatement st = connection.prepareStatement(query);
+        
+            ResultSet rs = st.executeQuery();        
+
+            while(rs.next()) {                       
+                String fileName = rs.getString(1);
+                byte[] fileContent = rs.getBytes(2);        
+                String fileOwner = rs.getString(3);        
+                byte[] encryptedHashLineDB = rs.getBytes(4);             
+                
+                String hashLineDB = Security.decrypt(publicKey, encryptedHashLineDB);
+                String hashLine = Security.createFileHashDb(fileName, fileContent, fileOwner);
+                
+                if(hashLineDB.compareTo(hashLine) != 0){ 
+                    System.out.println("Eror Error Error... Integrity of table files compromissed! Shutting down...");
+                    if(clientActive){
+                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
+                        stub.promote(request);
+                        throw new RansomwareAttackException();
+                    }else
+                        throw new FullRansomwareAttackException();
+                }            
+            }
+        } 
+        catch(SQLException e){
+            System.out.println(e.toString());
+        }
+    }
+
+    public void verifyPermissionsTableStateDB() throws Exception{
+
+        String query = "SELECT filename, username, symmetrickey, initializationvector, hash FROM permissions";
+        
+        try{
+            PreparedStatement st = connection.prepareStatement(query);
+        
+            ResultSet rs = st.executeQuery();        
+
+            while(rs.next()) {                       
+                String fileName = rs.getString(1);
+                String userName = rs.getString(2);     
+                byte[] encryptedSymmetricKey = rs.getBytes(3);        
+                byte[] encryptedInitializationVector = rs.getBytes(4);         
+                byte[] encryptedHashLineDB = rs.getBytes(5);
+      
+                String hashLineDB = Security.decrypt(publicKey, encryptedHashLineDB);
+                String hashLine = Security.createPermissionHashDb(fileName, userName, encryptedSymmetricKey, encryptedInitializationVector);
+                
+                if(hashLineDB.compareTo(hashLine) != 0){
+                    System.out.println("Eror Error Error... Integrity of table permissions compromissed! Shutting down...");
+                    if(clientActive){
+                        MainBackupServer.promoteRequest request = MainBackupServer.promoteRequest.newBuilder().build();
+                        stub.promote(request);
+                        throw new RansomwareAttackException();
+                    }else
+                        throw new FullRansomwareAttackException();
+                }            
+            }
+        } 
+        catch(SQLException e){
+            System.out.println(e.toString());
+        }
+    }
 
     /*------------------------------------Client-MainServer communication------------------------------------------------*/
-
 
     public void signUp(String username, ByteString password_bytes, ByteString publickeyClient, 
     ByteString timeStamp, ByteString hashMessage) throws Exception{

@@ -30,15 +30,6 @@ public class backupServer {
     private Key serverPublicKey;
     private databaseAccess database = new databaseAccess("rdabackup");
     Connection connection = database.connect();
-    
-    //--------------------------mainServer-backupServer implementation--------------------------
-    
-    //----------------------TO DO: add correct exceptions later------------------------
-
-    public String greet(String name){
-        return "Hello " + name + ". I am instance number ";
-    }
-
 
     public static Key getPublicKey(String filename) throws Exception {
     

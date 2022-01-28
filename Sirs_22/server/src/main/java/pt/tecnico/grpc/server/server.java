@@ -3,7 +3,6 @@ package pt.tecnico.grpc.server;
 import pt.tecnico.grpc.MainBackupServer;
 import pt.tecnico.grpc.MainBackupServerServiceGrpc;
 
-
 import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
@@ -20,8 +19,6 @@ import java.io.File;
 
 public class server {
 
-	//-------------- Main function only------------------
-
 	private static boolean clientActive = false;
 	private static int port = 8090;
 	private static int instance;
@@ -36,6 +33,7 @@ public class server {
 		System.out.println(server.class.getSimpleName());
 
 		System.out.printf("Received %d arguments%n", args.length);
+
 		for (int i = 0; i < args.length; i++) {
 			System.out.printf("arg[%d] = %s%n", i, args[i]);
 		}
@@ -47,6 +45,7 @@ public class server {
 		} 
 
 		instance = Integer.valueOf(args[0]);
+		
 		if(instance==1)
 			backupHostName = args[1];
 		
@@ -55,7 +54,7 @@ public class server {
 				createClient(instance,backupHostName);
 			} catch (StatusRuntimeException e){
 				System.err.println("Backup Server isn't running initially.");
-				System.exit(-1); //Instead of exiting assume as normal behavior later?(backup may be compromissed/inexistent since beginning of program?)
+				System.exit(-1); 
 			} catch (SSLException e){
 				System.err.println("SSL error with description: " + e);
 				System.exit(-1);
@@ -66,14 +65,14 @@ public class server {
 		}
 		try{
 			createServer(instance);
-		} catch (IOException ex){
+		} 
+		catch (IOException ex){
 			System.err.println("IOException with message: " + ex.getMessage() + " and cause:" + ex.getCause());
 			System.exit(-1);
 		}
 
-		// Server threads are running in the background.
-		System.out.println("Server started");
-		// Do not exit the main thread. Wait until server is terminated.
+		System.out.println("Server started.");
+
 		server.awaitTermination();
 	}
 
@@ -98,10 +97,10 @@ public class server {
 		server = ServerBuilder.forPort(port + 3).useTransportSecurity(new File("tlscert/server.crt"),
 		new File("tlscert/server.pem")).addService(impl).build();
 		server.start();
-}
-
+	}
 
 	public static void createClient(int instance, String host) throws StatusRuntimeException, SSLException{
+
 		clientActive = false;
 		final String target = host + ":" + (port + 2);
 		File tls_cert = new File("tlscert/backupServer.crt");
@@ -109,11 +108,6 @@ public class server {
 		channel = NettyChannelBuilder.forTarget(target).sslContext(GrpcSslContexts.forClient().trustManager(tls_cert).build()).build();
 		stub = MainBackupServerServiceGrpc.newBlockingStub(channel);
 		clientActive = true;
-		
-		//---just for testing, delete laters---
-		MainBackupServer.HelloRequest request = MainBackupServer.HelloRequest.newBuilder().setName("friend").build();
-		MainBackupServer.HelloResponse response = stub.greeting(request);
-		System.out.println(response);
 	}
 	
 
