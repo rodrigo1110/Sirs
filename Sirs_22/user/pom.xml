@@ -20,7 +20,7 @@
 
 		<mainclass>pt.tecnico.grpc.user.User</mainclass>
 		<server.host>localhost</server.host>
-		<server.port>8091</server.port>
+		<backupServer.host>localhost</backupServer.host>
 	</properties>
 
 	<dependencies>
@@ -57,8 +57,7 @@
 					<mainClass>${mainclass}</mainClass>
 					<arguments>
 						<argument>${server.host}</argument>
-						<argument>${server.port}</argument>
-						<argument>${server.host}</argument>
+						<argument>${backupServer.host}</argument>
 					</arguments>
 				</configuration>
 			</plugin>

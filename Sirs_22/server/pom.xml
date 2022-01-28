@@ -19,6 +19,7 @@
 		<version.exec-maven-plugin>3.0.0</version.exec-maven-plugin>
 
 		<mainclass>pt.tecnico.grpc.server.server</mainclass>
+		<dbName>rda</dbName>
 		<instance>1</instance>
 		<backupHostName>localhost</backupHostName>
 	</properties>
@@ -67,6 +68,7 @@
 					<mainClass>${mainclass}</mainClass>
 					<cleanupDaemonThreads>false</cleanupDaemonThreads>
 					<arguments>
+						<argument>${dbName}</argument>
 						<argument>${instance}</argument>
 						<argument>${backupHostName}</argument>
 					</arguments>

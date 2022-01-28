@@ -12,8 +12,13 @@ import static io.grpc.Status.*;
 
 public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainServerServiceImplBase {
 	
+	private String dbName;
 	private server listeningServer = new server();
-	private mainServer server = new mainServer(listeningServer.getClientActive(),listeningServer.getChannel(), listeningServer.getStub());
+	private mainServer server = new mainServer(listeningServer.getDBName(),listeningServer.getClientActive(),listeningServer.getChannel(), listeningServer.getStub());
+
+	public mainServerServiceImpl(String db_Name){
+		dbName = db_Name;
+	}
 
 	@Override
 	public void showFiles(UserMainServer.showFilesRequest request, StreamObserver<UserMainServer.showFilesResponse> responseObserver) {

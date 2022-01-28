@@ -189,7 +189,7 @@ public class Security {
         Timestamp timestampNow = new Timestamp(System.currentTimeMillis());
         long timeStampLong = timestampNow.getTime();
 
-        if((timeStampLong - sentTimeStampLong) < 1000)
+        if((timeStampLong - sentTimeStampLong) < 2000)
             return true;
 
         return false;

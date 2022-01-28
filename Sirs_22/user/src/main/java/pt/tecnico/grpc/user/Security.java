@@ -284,7 +284,7 @@ public class Security {
         Timestamp timestampNow = new Timestamp(System.currentTimeMillis());
         long timeStampLong = timestampNow.getTime();
 
-        if((timeStampLong - sentTimeStampLong) < 1000)
+        if((timeStampLong - sentTimeStampLong) < 2000)
             return true;
 
         return false;
@@ -301,7 +301,7 @@ public class Security {
         char [] input = System.console().readPassword();
 
         boolean hasLower , hasUpper, hasDigit, hasSpecialCharacter;
-        boolean safe = true; //so para testar mais rapido, colocar a false depois!!!
+        boolean safe = false; 
 
         while(safe == false){
             hasLower = false;
@@ -312,7 +312,7 @@ public class Security {
             int len = input.length;
 
             if(len<10){
-                System.out.println("Password must be have at least 10 characters(Lower and UpperCase, with at least 1 digit and a special character) ");
+                System.out.println("Password must be have at least 10 characters(Lower and UpperCase, with at least 1 digit and 1 special character) ");
                 System.out.print("Please, enter your password: ");
                 input = System.console().readPassword();
             }

@@ -17,11 +17,13 @@ import io.grpc.stub.StreamObserver;
 public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBackupServerServiceImplBase{
     	
 	private int instanceNumber;
-	private backupServer server = new backupServer();
+	private String dbName;
 	private server listeningServer = new server();
+	private backupServer server = new backupServer(listeningServer.getDBName());
 
-	public backupServerServiceImpl(int instance_number){
+	public backupServerServiceImpl(int instance_number, String db_name){
 		instanceNumber = instance_number;
+		dbName = db_name;
 	}
 
 	@Override
@@ -33,7 +35,7 @@ public class backupServerServiceImpl extends MainBackupServerServiceGrpc.MainBac
 			responseObserver.onNext(response);
 			responseObserver.onCompleted();
 
-			listeningServer.createMainServer(); 
+			listeningServer.createMainServer(dbName); 
 		} 
 		catch (Exception e){
 			System.out.println(e.getMessage());

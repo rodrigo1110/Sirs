@@ -51,21 +51,23 @@ public class mainServer {
     ManagedChannel channel;
     MainBackupServerServiceGrpc.MainBackupServerServiceBlockingStub stub;
     boolean clientActive = false;
-    private databaseAccess database = new databaseAccess("rda");
-    Connection connection = database.connect();
+    private databaseAccess database;
+    Connection connection;
     private String userName;
     private String password;
     private Key privateKey;
     private Key publicKey;
     private boolean hasKeys = false;
 
-    public mainServer(Boolean flag, ManagedChannel Channel, MainBackupServerServiceGrpc.MainBackupServerServiceBlockingStub Stub){
+    public mainServer(String DBName, Boolean flag, ManagedChannel Channel, MainBackupServerServiceGrpc.MainBackupServerServiceBlockingStub Stub){
         if(flag){
             channel = Channel;
             stub = Stub;
             clientActive = true;
             System.out.println("Existent backup server. Connected.");
         }
+        database = new databaseAccess(DBName);
+        connection = database.connect();
     }
 
     /*------------------------------------ Database Functionss ------------------------------------------------*/

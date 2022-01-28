@@ -28,16 +28,16 @@ public class User {
 			System.out.printf("arg[%d] = %s%n", i, args[i]);
 		}
 
-		if (args.length != 3) {
+		if (args.length != 2) {
 			System.err.println("Invalid Number of Arguments");
 			myObj.close();
 			return;
 		} 
 
 		final String host = args[0];
-		final int port = Integer.parseInt(args[1]);
-		final String backupHost = args[2];
-		final String target = host + ":" + port;
+		final int port = 8091;
+		final String backupHost = args[1];
+		final String target = host + ":" + 8091;
 
 		String[] command;
 		String str;
@@ -57,6 +57,7 @@ public class User {
 		System.out.println("Type 'help' to see avaliable operations.");
 
 		System.out.println();
+		TimeUnit.MILLISECONDS.sleep(500);
 
 		while(myObj.hasNext()){
 
@@ -86,7 +87,7 @@ public class User {
 						case "exit":
 							System.exit(0);
 						default: 
-							System.out.printf("That operation is unavailable.%n");
+							System.out.printf("That command is unavailable.%n");
 							System.out.println();
 							break;
 					}
@@ -193,7 +194,7 @@ public class User {
 						case "exit":
 							System.exit(0);
 						default: 
-							System.out.printf("Message not found%n");
+							System.out.printf("That command is unavailable.%n");
 							System.out.println();
 							break;
 					}

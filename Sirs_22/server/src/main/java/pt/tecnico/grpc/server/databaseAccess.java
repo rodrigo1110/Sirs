@@ -20,9 +20,14 @@ public class databaseAccess {
         System.out.println("Connecting to the database.");
 
         try {
-            connection = DriverManager.getConnection(dbhost, username, password);
+            try{
+                connection = DriverManager.getConnection(dbhost, username, password);
+                System.out.println("Database connected!");
+            }catch(SQLException e){
+                System.out.println("Wasn't able to connect to database because it doesn't exist.");
+                System.exit(-1);
+            }
 
-            System.out.println("Database connected!");
             
             Statement stmt = connection.createStatement();
 

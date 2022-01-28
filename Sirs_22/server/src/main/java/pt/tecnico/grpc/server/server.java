@@ -22,6 +22,7 @@ public class server {
 	private static boolean clientActive = false;
 	private static int port = 8090;
 	private static int instance;
+	private static String dbName;
 	private static Server server;
 	private static String backupHostName;
 	private static BindableService impl;
@@ -38,20 +39,21 @@ public class server {
 			System.out.printf("arg[%d] = %s%n", i, args[i]);
 		}
 
-		if ((args.length != 2) && (Integer.valueOf(args[0]) == 1)) {
+		if ( (args.length < 2) || ((args.length != 3) && (Integer.valueOf(args[1]) == 1))) {
 			System.err.println("Invalid Number of Arguments");
-			System.err.printf("Usage: java %s instance_of_server backup server's host name %n", server.class.getName());
+			System.err.printf("Arguments Required: DBName instance_of_server backup_server's_host_name %n", server.class.getName());
 			return;
 		} 
 
-		instance = Integer.valueOf(args[0]);
+		dbName = args[0];
+		instance = Integer.valueOf(args[1]);
 		
 		if(instance==1)
-			backupHostName = args[1];
+			backupHostName = args[2];
 		
 		if(instance==1){
 			try{
-				createClient(instance,backupHostName);
+				createClient(backupHostName);
 			} catch (StatusRuntimeException e){
 				System.err.println("Backup Server isn't running initially.");
 				System.exit(-1); 
@@ -79,27 +81,27 @@ public class server {
 
 	public static void createServer(int instance) throws IOException{
 		if(instance==1){
-			impl = new mainServerServiceImpl();
+			impl = new mainServerServiceImpl(dbName);
 			server = ServerBuilder.forPort(port + 1).useTransportSecurity(new File("tlscert/server.crt"),
         	new File("tlscert/server.pem")).addService(impl).build();
 			server.start();
 		}
 		else{
-			impl = new backupServerServiceImpl(instance);
+			impl = new backupServerServiceImpl(instance, dbName);
 			server = ServerBuilder.forPort(port + 2).useTransportSecurity(new File("tlscert/backupServer.crt"), 
         	new File("tlscert/backupServer.pem")).addService(impl).build();
 			server.start();
 		}
 	}
 
-	public void createMainServer() throws IOException{
-		impl = new mainServerServiceImpl();
+	public void createMainServer(String db_name) throws IOException{
+		impl = new mainServerServiceImpl(db_name);
 		server = ServerBuilder.forPort(port + 3).useTransportSecurity(new File("tlscert/server.crt"),
 		new File("tlscert/server.pem")).addService(impl).build();
 		server.start();
 	}
 
-	public static void createClient(int instance, String host) throws StatusRuntimeException, SSLException{
+	public static void createClient(String host) throws StatusRuntimeException, SSLException{
 
 		clientActive = false;
 		final String target = host + ":" + (port + 2);
@@ -113,6 +115,10 @@ public class server {
 
 	public Server getServer(){
 		return server;
+	}
+
+	public String getDBName(){
+		return dbName;
 	}
 
 

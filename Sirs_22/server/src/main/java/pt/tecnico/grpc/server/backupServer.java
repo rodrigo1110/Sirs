@@ -28,9 +28,16 @@ public class backupServer {
 
     private boolean hasPublicKey = false;
     private Key serverPublicKey;
-    private databaseAccess database = new databaseAccess("rdabackup");
-    Connection connection = database.connect();
+    private databaseAccess database;
+    Connection connection;
 
+    
+    public backupServer(String db_Name){
+        database = new databaseAccess(db_Name);
+        connection = database.connect();
+    }
+    
+    
     /*------------------------------------ Database Functionss ------------------------------------------------*/
 
     public String createUserHashDb(String username, String hashPassword, String hashCookie, 
