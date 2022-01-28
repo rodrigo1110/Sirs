@@ -216,7 +216,6 @@ public class UserImpl {
         String hashCookie = Security.hashMessage(cookie);
         ByteString encryptedhashCookie = ByteString.copyFrom(Security.encrypt(serverPublicKey, hashCookie.getBytes()));
 
-
         ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
 
         ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
@@ -746,14 +745,47 @@ public class UserImpl {
 
     public void showFiles() throws Exception{
 
-        UserMainServer.showFilesRequest request = UserMainServer.showFilesRequest.newBuilder().
-                setUserName(this.username).build();
+        String hashCookie = Security.hashMessage(cookie);
+        ByteString encryptedhashCookie = ByteString.copyFrom(Security.encrypt(serverPublicKey, hashCookie.getBytes()));
+
+        ByteString encryptedTimeStamp = ByteString.copyFrom(Security.encrypt(privateKey, Security.getTimeStampBytes()));
+
+        ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+        messageBytes.write(encryptedhashCookie.toByteArray());
+        messageBytes.write(":".getBytes());
+        messageBytes.write(encryptedTimeStamp.toByteArray());
+
+        String hashMessage = Security.hashMessage(new String(messageBytes.toByteArray()));
+        ByteString encryptedHashMessage = ByteString.copyFrom(Security.encrypt(privateKey, hashMessage.getBytes()));
+        
+        UserMainServer.showFilesRequest request = UserMainServer.showFilesRequest.
+        newBuilder().setCookie(encryptedhashCookie).setTimeStamp(encryptedTimeStamp).
+        setHashMessage(encryptedHashMessage).build();
 
         UserMainServer.showFilesResponse response = stub.showFiles(request);
 
+        byte[] encryptedTimeStampByteArray = response.getTimeStamp().toByteArray();
         List<String> listOfFiles = response.getFileNameList();
+        byte[] encryptedhashResponseByteArray = response.getHashMessage().toByteArray();
 
-        System.out.println("This are the files you have permission to download: ");
+
+        if(!(Security.verifyTimeStamp(response.getTimeStamp(),serverPublicKey))){
+            System.out.println("Response took to long");
+            return;
+        }
+
+        ByteArrayOutputStream responseBytes = new ByteArrayOutputStream();
+        responseBytes.write(listOfFiles.toString().getBytes());
+        responseBytes.write(":".getBytes());
+        responseBytes.write(encryptedTimeStampByteArray);
+
+        String hashResponseString = Security.decrypt(serverPublicKey, encryptedhashResponseByteArray);
+        if(!(Security.verifyMessageHash(responseBytes.toByteArray(), hashResponseString))){
+            System.out.println("Response integrity compromised");
+        } 
+
+        if(listOfFiles.size() > 0)
+            System.out.println("This are the files you have permission to download: ");
 
         for(int i = 0; i < listOfFiles.size(); i++){
             System.out.print("- ");

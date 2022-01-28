@@ -18,13 +18,16 @@ public class mainServerServiceImpl extends UserMainServerServiceGrpc.UserMainSer
 	@Override
 	public void showFiles(UserMainServer.showFilesRequest request, StreamObserver<UserMainServer.showFilesResponse> responseObserver) {
 
-		System.out.println(request);
+		try{
+			UserMainServer.showFilesResponse response = server.showFiles(request.getCookie(), request.getTimeStamp(), 
+			request.getHashMessage());
 
-		UserMainServer.showFilesResponse response = UserMainServer.showFilesResponse.newBuilder().addAllFileName(server.showFiles(request.getUserName()))
-				.build();
-
-		responseObserver.onNext(response);
-		responseObserver.onCompleted();
+			responseObserver.onNext(response);
+			responseObserver.onCompleted();
+		}
+		catch (Exception e){
+			responseObserver.onError(INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException());
+		}
 	}
 
 	@Override 

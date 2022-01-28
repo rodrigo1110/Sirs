@@ -289,6 +289,36 @@ public class mainServer {
         return false;
     }
 
+    public String correspondentUser(String hashCookie) throws Exception{
+
+        String dbUserName = "";
+
+        if (hashCookie.length() == 0)
+            throw new InvalidCookieException();
+        
+        String query = "SELECT username FROM users WHERE cookie=?";
+
+        try {
+            PreparedStatement st = connection.prepareStatement(query);
+            st.setString(1, hashCookie);
+        
+            ResultSet rs = st.executeQuery();        
+
+            if (rs.next()) {      
+                dbUserName = rs.getString("username");
+                return dbUserName;
+            }
+            else
+                throw new InvalidCookieException();
+            
+        } 
+        catch(SQLException e){
+                System.out.println(e);
+        }
+
+        return dbUserName;
+    }
+
     
     /*------------------------------------ Database Integrity Functions------------------------------------------------*/
 
@@ -654,30 +684,6 @@ public class mainServer {
         }
     }
     
-    public List<String> showFiles(String userName){
-
-        List<String> listOfFiles = new ArrayList<String>();
-
-        String query = "SELECT filename FROM permissions WHERE username=?";
-
-        try {
-            PreparedStatement st = connection.prepareStatement(query);
-            st.setString(1, userName);
-        
-            ResultSet rs = st.executeQuery();        
-
-            while (rs.next()) {      
-                String fileName = rs.getString(1);
-                listOfFiles.add(fileName);
-            }
-            return listOfFiles;
-        } 
-        catch(SQLException e){
-                System.out.println(e);
-        }
-        return null;
-    }
-    
     public void logout(ByteString cookie_bytes, ByteString timeStamp, ByteString hashMessage) throws Exception{
         
         try{
@@ -953,34 +959,76 @@ public class mainServer {
         }
     }
 
-    public String correspondentUser(String hashCookie) throws Exception{
+    public UserMainServer.showFilesResponse showFiles(ByteString cookie_bytes, ByteString timeStamp, ByteString hashMessage) throws Exception{
 
-        String dbUserName = "";
+        try{
 
-        if (hashCookie.length() == 0)
-            throw new InvalidCookieException();
-        
-        String query = "SELECT username FROM users WHERE cookie=?";
+            verifyUsersTableStateDB();
 
-        try {
-            PreparedStatement st = connection.prepareStatement(query);
-            st.setString(1, hashCookie);
-        
-            ResultSet rs = st.executeQuery();        
+            String hashCookie = Security.decrypt(privateKey, cookie_bytes.toByteArray());
 
-            if (rs.next()) {      
-                dbUserName = rs.getString("username");
-                return dbUserName;
-            }
-            else
-                throw new InvalidCookieException();
+            String dbUserName = correspondentUser(hashCookie);
+
+            byte[] userPublicKeyEncrypted = getUserPublicKeyDB(dbUserName);
+            byte[] userPublicKeyByteArray = Security.decryptKey(userPublicKeyEncrypted,privateKey);
+            X509EncodedKeySpec keySpec = new X509EncodedKeySpec(userPublicKeyByteArray);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            Key userPublicKey = keyFactory.generatePublic(keySpec);
             
-        } 
-        catch(SQLException e){
-                System.out.println(e);
-        }
+            if(!Security.verifyTimeStamp(timeStamp,userPublicKey))
+                throw new TimestampException();
 
-        return dbUserName;
+
+            ByteArrayOutputStream messageBytes = new ByteArrayOutputStream();
+            messageBytes.write(cookie_bytes.toByteArray());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(timeStamp.toByteArray());
+            
+            String hashMessageString = Security.decrypt(userPublicKey, hashMessage.toByteArray());
+
+            if(!Security.verifyMessageHash(messageBytes.toByteArray(), hashMessageString)){
+                throw new MessageIntegrityException();
+            }
+
+            List<String> listOfFiles = new ArrayList<String>();
+
+            String query = "SELECT filename FROM permissions WHERE username=?";
+
+            try {
+                PreparedStatement st = connection.prepareStatement(query);
+                st.setString(1, dbUserName);
+            
+                ResultSet rs = st.executeQuery();        
+
+                while (rs.next()) {      
+                    String fileName = rs.getString(1);
+                    listOfFiles.add(fileName);
+                }
+            } 
+            catch(SQLException e){
+                System.out.println(e);
+            }
+
+            ByteString encryptedTimeStampByteString = ByteString.copyFrom(Security.encrypt(privateKey, 
+            Security.getTimeStampBytes()));
+
+            messageBytes = new ByteArrayOutputStream();
+            messageBytes.write(listOfFiles.toString().getBytes());
+            messageBytes.write(":".getBytes());
+            messageBytes.write(encryptedTimeStampByteString.toByteArray());
+
+            String hashResponse = Security.hashString(new String(messageBytes.toByteArray()),new byte[0]);
+            ByteString encryptedHashResponse = ByteString.copyFrom(Security.encrypt(privateKey, hashResponse.getBytes()));
+            
+            UserMainServer.showFilesResponse response = UserMainServer.showFilesResponse.newBuilder()
+            .addAllFileName(listOfFiles).setTimeStamp(encryptedTimeStampByteString).setHashMessage(encryptedHashResponse).build();
+
+            return response;
+        }
+        catch(SQLException e){
+            System.out.println(e);
+        }
+        return null;
     }
 
     public UserMainServer.downloadResponse download(String fileID, ByteString cookie_bytes,

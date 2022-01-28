@@ -15,11 +15,15 @@ message uploadResponse{
 }
 
 message showFilesRequest{
-	string userName = 1;
+	bytes cookie = 1;
+	bytes timeStamp = 2;
+	bytes hashMessage = 3;
 }
 
 message showFilesResponse{
 	repeated string fileName = 1;
+	bytes timeStamp = 3;
+	bytes hashMessage = 4;
 }
 
 message isUpdateRequest{
